@@ -8,6 +8,15 @@ export interface Bar {
     volume: number;
 }
 
+export interface KlineConfig {
+    time_idx: number;
+    open_idx: number;
+    high_idx: number;
+    low_idx: number;
+    close_idx: number;
+    volume_idx: number;
+}
+
 // 这里的数字非常关键：
 // i64 占 8 字节，f32 占 4 字节
 // 顺序：time(0), open(8), high(12), low(16), close(20), volume(24)
@@ -29,7 +38,7 @@ export class KlineEngine {
         return new KlineEngine(instance);
     }
 
-    parse(csvText: string): Bar[] {
+    parse(csvText: string, config: KlineConfig): Bar[] {
         const encoder = new TextEncoder();
         const bytes = encoder.encode(csvText);
         const len = bytes.length;
@@ -42,7 +51,16 @@ export class KlineEngine {
         wasmMemory.set(bytes, ptr);
 
         // 3. 调用 Zig 的解析函数
-        const barsPtr = this.exports.parse_csv_wasm(ptr, len);
+        const barsPtr = this.exports.parse_csv_wasm(
+            ptr,
+            len,
+            config.time_idx,
+            config.open_idx,
+            config.high_idx,
+            config.low_idx,
+            config.close_idx,
+            config.volume_idx
+        );
         const count = this.exports.get_last_parse_count();
 
         // 4. 从二进制内存中读取 Bar 数组

@@ -16,11 +16,17 @@ interface KlineWasmExports extends WebAssembly.Exports {
 
     /**
      * 解析 CSV 字符串
-     * @param ptr 字符串在 WASM 内存中的起始地址
-     * @param len 字符串长度
-     * @returns 解析后的 Bar 数组起始地址（指针）
      */
-    parse_csv_wasm(ptr: number, len: number): number;
+    parse_csv_wasm(
+        ptr: number,
+        len: number,
+        time_idx: number,
+        open_idx: number,
+        high_idx: number,
+        low_idx: number,
+        close_idx: number,
+        volume_idx: number
+    ): number;
 
     /**
      * 获取最近一次解析出的 Bar 数量
