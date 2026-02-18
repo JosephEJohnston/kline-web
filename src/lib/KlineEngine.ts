@@ -34,7 +34,31 @@ export class KlineEngine {
 
     static async load() {
         const response = await fetch('/wasm/kline_engine.wasm');
-        const { instance } = await WebAssembly.instantiateStreaming(response);
+
+        // 1. 定义一个容器（引用不会变，但内容会变）
+        const wasm = { instance: null as WebAssembly.Instance | null };
+
+        const importObject = {
+            env: {
+                js_log_err: (ptr: number, len: number) => {
+                    // 3. 这里的闭包引用的是 wasm 对象，它在函数执行时已经有值了
+                    if (!wasm.instance) return;
+
+                    const exports = wasm.instance.exports as KlineWasmExports;
+                    const memory = new Uint8Array(exports.memory.buffer);
+                    const bytes = memory.subarray(ptr, ptr + len);
+                    const msg = new TextDecoder().decode(bytes);
+
+                    console.warn("🛡️ [Zig Debug]:", msg);
+                }
+            }
+        };
+
+        const { instance } = await WebAssembly.instantiateStreaming(response, importObject);
+
+        // 2. 填充容器
+        wasm.instance = instance;
+
         return new KlineEngine(instance);
     }
 
