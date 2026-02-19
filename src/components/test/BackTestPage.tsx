@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { KlineEngine, Bar, KlineConfig } from '@/lib/KlineEngine';
+import {CandlestickChart} from "@/components/CandlestickChart";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
@@ -84,6 +85,12 @@ export default function BacktestPage() {
                             <p className="text-gray-500 text-sm">WASM 耗时</p>
                             <p className="text-2xl font-mono font-bold">{parsingTime.toFixed(2)} ms</p>
                         </div>
+                    </div>
+
+                    {/* 2. 插入蜡烛图组件 */}
+                    <div className="p-4 border rounded-xl bg-white shadow-sm">
+                        <h2 className="text-lg font-semibold mb-4 text-gray-700">价格走势图</h2>
+                        <CandlestickChart data={data} />
                     </div>
 
                     <div className="border rounded overflow-hidden">

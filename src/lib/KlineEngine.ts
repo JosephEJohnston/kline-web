@@ -21,7 +21,7 @@ export interface KlineConfig {
 // i64 占 8 字节，f32 占 4 字节
 // 顺序：time(0), open(8), high(12), low(16), close(20), volume(24)
 // 总长度：28 字节 (如果 Zig 做了对齐补齐，可能是 32)
-const BAR_SIZE = 28;
+const BAR_SIZE = 32;
 
 export class KlineEngine {
     private instance: WebAssembly.Instance;
