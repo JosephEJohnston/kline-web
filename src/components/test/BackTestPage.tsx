@@ -19,7 +19,11 @@ export default function BacktestPage() {
 
         return {
             // 时间：匹配 time, date, 时间, 日期
-            time_idx: headers.findIndex(h => h.includes('time') || h.includes('date') || h.includes('时间') || h.includes('日期')),
+            time_idx: headers.findIndex(h => h.includes('time') ||
+                h.includes('date') ||
+                h.includes('day') ||
+                h.includes('时间') ||
+                h.includes('日期')),
 
             // 开盘：匹配 open, 开盘, 或者只有字母 o
             open_idx: headers.findIndex(h => h.includes('open') || h.includes('开盘') || h === 'o'),
