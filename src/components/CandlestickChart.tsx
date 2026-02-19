@@ -12,8 +12,19 @@ import {
 } from 'lightweight-charts';
 import { Bar } from '@/lib/KlineEngine'; // 引入你定义的 Bar 接口
 
+export interface IndicatorData {
+    name: string;         // 如 "EMA20"
+    data: Float32Array;   // 从 WASM 直接映射出来的平行数组
+    color?: string;       // 该均线的渲染颜色
+}
+
 interface CandlestickChartProps {
-    data: Bar[];
+    bars: Bar[];
+    // 平行指标数组集合
+    indicators?: IndicatorData[];
+    // 🌟 关键：数据同步完成的回调
+    // 当图表库（如 lightweight-charts）完成 setData 拷贝后触发
+    onDataReadyToFree?: () => void;
     colors?: {
         backgroundColor?: string;
         lineColor?: string;
@@ -25,7 +36,9 @@ interface CandlestickChartProps {
 
 export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     const {
-        data,
+        bars,
+        indicators,
+        onDataReadyToFree,
         colors: {
             backgroundColor = 'white',
             lineColor = '#2962FF',
@@ -84,12 +97,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
 
     // 5. 当数据变化时，更新图表数据
     useEffect(() => {
-        if (!seriesRef.current || !emaSeriesRef.current || data.length === 0) return;
+        if (!seriesRef.current || !emaSeriesRef.current || bars.length === 0) return;
 
         // 【关键】数据格式转换
         // Lightweight Charts 需要的时间戳是秒（Number 类型）
         // 你的 WASM 解析出来的是纳秒（BigInt 类型）
-        const chartData = data.map(bar => ({
+        const chartData = bars.map(bar => ({
             time: Number(bar.time) as UTCTimestamp, // 将纳秒转为秒
             open: bar.open,
             high: bar.high,
@@ -98,7 +111,22 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         }));
         seriesRef.current.setData(chartData);
 
-        const emaData = data
+        // 2. 设置多条均线
+        if (indicators) {
+            indicators.forEach(ind => {
+                // 将 Float32Array 格式化为图表库需要的 [{time, value}, ...]
+                const chartData = formatData(ind.data, bars);
+                const series = chart.addLineSeries({ color: ind.color });
+                series.setData(chartData);
+            });
+        }
+
+        // 3. 🌟 数据已安全进入图表库，通知外部释放 WASM 内存
+        if (onDataReadyToFree) {
+            onDataReadyToFree();
+        }
+
+        const emaData = bars
             // 过滤掉前 19 个没有有效 EMA 值的数据点 (它们是 0)
             .filter(bar => bar.ema20 > 0)
             .map(bar => ({
@@ -110,7 +138,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         // 自动缩放以显示所有数据
         chartRef.current?.timeScale().fitContent();
 
-    }, [data]);
+    }, [bars]);
 
     return <div ref={chartContainerRef} className="w-full relative" />;
 };

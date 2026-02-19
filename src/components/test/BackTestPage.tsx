@@ -1,46 +1,26 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { KlineEngine, Bar, KlineConfig } from '@/lib/KlineEngine';
-import {CandlestickChart} from "@/components/CandlestickChart";
+import {CandlestickChart, IndicatorData} from "@/components/CandlestickChart";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
-    const [data, setData] = useState<Bar[]>([]);
+    const [bars, setBars] = useState<Bar[]>([]);
     const [parsingTime, setParsingTime] = useState<number>(0);
+
+    // 1. 定义状态
+    const [indicators, setIndicators] = useState<IndicatorData[]>([]);
+
+    // 2. 内存清理回调
+    const handleCleanup = () => {
+        // 当图表渲染完成并拷贝走数据后，通知 WASM 引擎重置 Arena 内存
+        engine?.freeMemory();
+        console.log("WASM Memory Cleaned Up");
+    };
 
     useEffect(() => {
         KlineEngine.load().then(setEngine);
     }, []);
-
-    // 自动识别 CSV 表头的辅助函数
-    const getAutoConfig = (firstLine: string): KlineConfig => {
-        // 预处理：转小写并去掉空格，减少干扰
-        const headers = firstLine.toLowerCase().split(',').map(h => h.trim());
-
-        return {
-            // 时间：匹配 time, date, 时间, 日期
-            time_idx: headers.findIndex(h => h.includes('time') ||
-                h.includes('date') ||
-                h.includes('day') ||
-                h.includes('时间') ||
-                h.includes('日期')),
-
-            // 开盘：匹配 open, 开盘, 或者只有字母 o
-            open_idx: headers.findIndex(h => h.includes('open') || h.includes('开盘') || h === 'o'),
-
-            // 最高：匹配 high, 最高, 或者只有字母 h
-            high_idx: headers.findIndex(h => h.includes('high') || h.includes('最高') || h === 'h'),
-
-            // 最低：匹配 low, 最低, 或者只有字母 l
-            low_idx: headers.findIndex(h => h.includes('low') || h.includes('最低') || h === 'l'),
-
-            // 收盘：匹配 close, 收盘, 或者只有字母 c
-            close_idx: headers.findIndex(h => h.includes('close') || h.includes('收盘') || h === 'c'),
-
-            // 成交量：匹配 volume, vol, 成交, 或者只有字母 v
-            volume_idx: headers.findIndex(h => h.includes('vol') || h.includes('成交') || h === 'v'),
-        };
-    };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -63,12 +43,14 @@ export default function BacktestPage() {
         const ema60Array =
             engine.calculateEma(barsPtr, count, 60);
 
-        engine.freeMemory();
-
         const end = performance.now();
 
         setParsingTime(end - start);
-        setData(bars);
+        setBars(bars);
+        setIndicators([
+            { name: 'EMA20', data: ema20Array, color: '#2962FF' },
+            { name: 'EMA60', data: ema60Array, color: '#FF6D00' }
+        ]);
     };
 
     return (
@@ -84,12 +66,12 @@ export default function BacktestPage() {
                 />
             </div>
 
-            {data.length > 0 && (
+            {bars.length > 0 && (
                 <div className="mt-8 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="p-4 bg-blue-50 rounded shadow-sm">
                             <p className="text-gray-500 text-sm">解析行数</p>
-                            <p className="text-2xl font-mono font-bold">{data.length.toLocaleString()}</p>
+                            <p className="text-2xl font-mono font-bold">{bars.length.toLocaleString()}</p>
                         </div>
                         <div className="p-4 bg-green-50 rounded shadow-sm">
                             <p className="text-gray-500 text-sm">WASM 耗时</p>
@@ -100,7 +82,11 @@ export default function BacktestPage() {
                     {/* 2. 插入蜡烛图组件 */}
                     <div className="p-4 border rounded-xl bg-white shadow-sm">
                         <h2 className="text-lg font-semibold mb-4 text-gray-700">价格走势图</h2>
-                        <CandlestickChart data={data} />
+                        <CandlestickChart
+                            bars={bars}
+                            indicators={indicators}
+                            onDataReadyToFree={handleCleanup}
+                        />
                     </div>
 
                     <div className="border rounded overflow-hidden">
@@ -113,7 +99,7 @@ export default function BacktestPage() {
                             </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200 font-mono text-sm">
-                            {data.slice(0, 5).map((bar, i) => (
+                            {bars.slice(0, 5).map((bar, i) => (
                                 <tr key={i}>
                                     <td className="px-4 py-2">{bar.time.toString()}</td>
                                     <td className="px-4 py-2 text-blue-600">{bar.close.toFixed(2)}</td>
@@ -129,3 +115,34 @@ export default function BacktestPage() {
         </div>
     );
 }
+
+
+// 自动识别 CSV 表头的辅助函数
+const getAutoConfig = (firstLine: string): KlineConfig => {
+    // 预处理：转小写并去掉空格，减少干扰
+    const headers = firstLine.toLowerCase().split(',').map(h => h.trim());
+
+    return {
+        // 时间：匹配 time, date, 时间, 日期
+        time_idx: headers.findIndex(h => h.includes('time') ||
+            h.includes('date') ||
+            h.includes('day') ||
+            h.includes('时间') ||
+            h.includes('日期')),
+
+        // 开盘：匹配 open, 开盘, 或者只有字母 o
+        open_idx: headers.findIndex(h => h.includes('open') || h.includes('开盘') || h === 'o'),
+
+        // 最高：匹配 high, 最高, 或者只有字母 h
+        high_idx: headers.findIndex(h => h.includes('high') || h.includes('最高') || h === 'h'),
+
+        // 最低：匹配 low, 最低, 或者只有字母 l
+        low_idx: headers.findIndex(h => h.includes('low') || h.includes('最低') || h === 'l'),
+
+        // 收盘：匹配 close, 收盘, 或者只有字母 c
+        close_idx: headers.findIndex(h => h.includes('close') || h.includes('收盘') || h === 'c'),
+
+        // 成交量：匹配 volume, vol, 成交, 或者只有字母 v
+        volume_idx: headers.findIndex(h => h.includes('vol') || h.includes('成交') || h === 'v'),
+    };
+};
