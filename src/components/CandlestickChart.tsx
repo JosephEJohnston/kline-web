@@ -8,7 +8,7 @@ import {
     ISeriesApi,
     CandlestickSeries,
     UTCTimestamp,
-    LineStyle, LineSeries
+    LineSeries
 } from 'lightweight-charts';
 import { Bar } from '@/lib/KlineEngine'; // 引入你定义的 Bar 接口
 
@@ -41,18 +41,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         onDataReadyToFree,
         colors: {
             backgroundColor = 'white',
-            lineColor = '#2962FF',
             textColor = 'black',
-            areaTopColor = '#2962FF',
-            areaBottomColor = 'rgba(41, 98, 255, 0.28)',
         } = {},
     } = props;
 
     const chartContainerRef = useRef<HTMLDivElement>(null!);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-    // 新增一个 ref 来持有 EMA 线的实例
-    const emaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    // 🌟 关键：使用 Map 管理动态生成的指标线
+    // Key 为指标名称 (如 "EMA20")，Value 为图表库的 Series 实例
+    const indicatorSeriesMap = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -76,28 +74,42 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         });
         seriesRef.current = newSeries;
 
-        const emaSeries = chart.addSeries(LineSeries, {
-            color: '#FF9800', // 设置为橙色，显眼一点
-            lineWidth: 2,
-            lineStyle: LineStyle.Solid,
-            title: 'EMA20', // 图例标题
-            // priceScaleId: 'right', // 默认就是 right，和 K 线共用一个价格轴
-        });
-        emaSeriesRef.current = emaSeries;
-
         // 3. 监听窗口大小变化
         window.addEventListener('resize', handleResize);
 
+        if (indicators) {
+            indicators.forEach(ind => {
+                // 如果该指标线还不存在，则创建它
+                if (!indicatorSeriesMap.current.has(ind.name)) {
+                    const newLine = chart.addSeries(LineSeries, {
+                        color: ind.color || '#2962FF',
+                        lineWidth: 2,
+                        title: ind.name,
+                    });
+                    indicatorSeriesMap.current.set(ind.name, newLine);
+                }
+            });
+
+            // 清理掉不再存在的指标轨道
+            const currentNames = new Set(indicators.map(i => i.name));
+            indicatorSeriesMap.current.forEach((series, name) => {
+                if (!currentNames.has(name)) {
+                    chart.removeSeries(series);
+                    indicatorSeriesMap.current.delete(name);
+                }
+            });
+        }
+        
         // 4. 清理函数：组件卸载时销毁图表
         return () => {
             window.removeEventListener('resize', handleResize);
             chart.remove();
         };
-    }, [backgroundColor, textColor]);
+    }, [backgroundColor, indicators, textColor]);
 
     // 5. 当数据变化时，更新图表数据
     useEffect(() => {
-        if (!seriesRef.current || !emaSeriesRef.current || bars.length === 0) return;
+        if (!seriesRef.current || bars.length === 0) return;
 
         // 【关键】数据格式转换
         // Lightweight Charts 需要的时间戳是秒（Number 类型）
@@ -111,13 +123,21 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         }));
         seriesRef.current.setData(chartData);
 
-        // 2. 设置多条均线
+        // B. 同步平行指标数组
         if (indicators) {
             indicators.forEach(ind => {
-                // 将 Float32Array 格式化为图表库需要的 [{time, value}, ...]
-                const chartData = formatData(ind.data, bars);
-                const series = chart.addLineSeries({ color: ind.color });
-                series.setData(chartData);
+                // 转换平行数组为图表格式
+                const lineData = [];
+                for (let i = 0; i < ind.data.length; i++) {
+                    const val = ind.data[i];
+                    if (val > 0) { // 过滤掉初始周期的 0 值
+                        lineData.push({
+                            time: Number(bars[i].time) as UTCTimestamp,
+                            value: val,
+                        });
+                    }
+                }
+                indicatorSeriesMap.current.get(ind.name)?.setData(lineData);
             });
         }
 
@@ -125,20 +145,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         if (onDataReadyToFree) {
             onDataReadyToFree();
         }
-
-        const emaData = bars
-            // 过滤掉前 19 个没有有效 EMA 值的数据点 (它们是 0)
-            .filter(bar => bar.ema20 > 0)
-            .map(bar => ({
-                time: Number(bar.time) as UTCTimestamp,
-                value: bar.ema20, // LineSeries 只需要 time 和 value
-            }));
-        emaSeriesRef.current.setData(emaData);
-
+        
         // 自动缩放以显示所有数据
         chartRef.current?.timeScale().fitContent();
 
-    }, [bars]);
+    }, [bars, indicators, onDataReadyToFree]);
 
     return <div ref={chartContainerRef} className="w-full relative" />;
 };
