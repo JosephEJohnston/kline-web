@@ -86,7 +86,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         // Lightweight Charts 需要的时间戳是秒（Number 类型）
         // 你的 WASM 解析出来的是纳秒（BigInt 类型）
         const chartData = data.map(bar => ({
-            time: Number(bar.time / 1000000000n) as UTCTimestamp, // 将纳秒转为秒
+            time: Number(bar.time) as UTCTimestamp, // 将纳秒转为秒
             open: bar.open,
             high: bar.high,
             low: bar.low,

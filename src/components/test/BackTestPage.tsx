@@ -50,7 +50,7 @@ export default function BacktestPage() {
 
         // 1. 获取动态配置
         const config = getAutoConfig(lines[0]);
-        console.log('识别到的列配置:', config);
+        // console.log('识别到的列配置:', config);
 
         // 2. 执行解析并计时
         const start = performance.now();
