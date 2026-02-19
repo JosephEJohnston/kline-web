@@ -6,6 +6,7 @@ export interface Bar {
     low: number;
     close: number;
     volume: number;
+    ema20: number;
 }
 
 export interface KlineConfig {
@@ -101,6 +102,8 @@ export class KlineEngine {
                 low: view.getFloat32(offset + 16, true),
                 close: view.getFloat32(offset + 20, true),
                 volume: view.getFloat32(offset + 24, true),
+                // 读取偏移量为 28 的 ema20 字段
+                ema20: view.getFloat32(offset + 28, true),
             });
         }
 

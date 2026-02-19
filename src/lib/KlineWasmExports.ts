@@ -37,4 +37,6 @@ interface KlineWasmExports extends WebAssembly.Exports {
      * 释放/重置整个 Arena 分配器
      */
     free_memory(): void;
+
+    calculate_ema(barsPtr: number, barsLen: number, period: number): void;
 }

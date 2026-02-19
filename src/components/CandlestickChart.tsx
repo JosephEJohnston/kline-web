@@ -1,7 +1,15 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import {createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, UTCTimestamp} from 'lightweight-charts';
+import {
+    createChart,
+    ColorType,
+    IChartApi,
+    ISeriesApi,
+    CandlestickSeries,
+    UTCTimestamp,
+    LineStyle, LineSeries
+} from 'lightweight-charts';
 import { Bar } from '@/lib/KlineEngine'; // 引入你定义的 Bar 接口
 
 interface CandlestickChartProps {
@@ -30,6 +38,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+    // 新增一个 ref 来持有 EMA 线的实例
+    const emaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -68,6 +78,15 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         });
         seriesRef.current = newSeries;
 
+        const emaSeries = chart.addSeries(LineSeries, {
+            color: '#FF9800', // 设置为橙色，显眼一点
+            lineWidth: 2,
+            lineStyle: LineStyle.Solid,
+            title: 'EMA20', // 图例标题
+            // priceScaleId: 'right', // 默认就是 right，和 K 线共用一个价格轴
+        });
+        emaSeriesRef.current = emaSeries;
+
         // 3. 监听窗口大小变化
         window.addEventListener('resize', handleResize);
 
@@ -80,7 +99,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
 
     // 5. 当数据变化时，更新图表数据
     useEffect(() => {
-        if (!seriesRef.current || data.length === 0) return;
+        if (!seriesRef.current || !emaSeriesRef.current || data.length === 0) return;
 
         // 【关键】数据格式转换
         // Lightweight Charts 需要的时间戳是秒（Number 类型）
@@ -92,8 +111,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
             low: bar.low,
             close: bar.close,
         }));
-
         seriesRef.current.setData(chartData);
+
+        const emaData = data
+            // 过滤掉前 19 个没有有效 EMA 值的数据点 (它们是 0)
+            .filter(bar => bar.ema20 > 0)
+            .map(bar => ({
+                time: Number(bar.time) as UTCTimestamp,
+                value: bar.ema20, // LineSeries 只需要 time 和 value
+            }));
+        emaSeriesRef.current.setData(emaData);
 
         // 自动缩放以显示所有数据
         chartRef.current?.timeScale().fitContent();
