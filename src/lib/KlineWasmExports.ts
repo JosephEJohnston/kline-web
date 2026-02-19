@@ -38,5 +38,10 @@ interface KlineWasmExports extends WebAssembly.Exports {
      */
     free_memory(): void;
 
-    calculate_ema(barsPtr: number, barsLen: number, period: number): void;
+    calculate_ema(
+        barsPtr: number,
+        barsLen: number,
+        period: number,
+        outputPtr: number
+    ): void;
 }

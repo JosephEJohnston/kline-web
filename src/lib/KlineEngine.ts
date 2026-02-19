@@ -6,7 +6,7 @@ export interface Bar {
     low: number;
     close: number;
     volume: number;
-    ema20: number;
+    _pad: number;
 }
 
 export interface KlineConfig {
@@ -63,7 +63,7 @@ export class KlineEngine {
         return new KlineEngine(instance);
     }
 
-    parse(csvText: string, config: KlineConfig): Bar[] {
+    public parse(csvText: string, config: KlineConfig): { bars: Bar[], barsPtr: number, count: number } {
         const encoder = new TextEncoder();
         const bytes = encoder.encode(csvText);
         const len = bytes.length;
@@ -102,14 +102,51 @@ export class KlineEngine {
                 low: view.getFloat32(offset + 16, true),
                 close: view.getFloat32(offset + 20, true),
                 volume: view.getFloat32(offset + 24, true),
-                // 读取偏移量为 28 的 ema20 字段
-                ema20: view.getFloat32(offset + 28, true),
+                // 读取偏移量为 28 的 _pad 字段
+                _pad: view.getFloat32(offset + 28, true),
             });
         }
 
-        // 5. 【关键】用完后让 Arena 重置内存
-        this.exports.free_memory();
+        return {bars, barsPtr, count};
+    }
 
-        return bars;
+    /**
+     * 计算 EMA 指标（平行数组版）
+     * @param barsPtr 基础 K 线数据的 WASM 指针
+     * @param count 数据行数
+     * @param period 均线周期 (如 20)
+     * @returns 包含 EMA 值的 Float32Array
+     */
+    public calculateEma(barsPtr: number, count: number, period: number): Float32Array {
+        // 1. 申请一块新的内存空间存放计算结果 (f32 占用 4 字节)
+        // 建议在 Zig 侧导出这个 allocFloatArray 函数
+        const outputPtr = this.allocFloatArray(count);
+
+        // 2. 调用 Zig 导出的计算函数
+        // 签名：(bars_ptr, len, period, output_ptr)
+        this.exports.calculate_ema(barsPtr, count, period, outputPtr);
+
+        // 3. 将 WASM 内存映射为 JS 的 Float32Array（零拷贝读取）
+        // 注意：这只是一个视图，并没有发生大规模数据拷贝
+        const emaResult = new Float32Array(
+            this.exports.memory.buffer,
+            outputPtr,
+            count
+        );
+
+        // 返回一份拷贝，或者让外部管理这块内存
+        // 如果你的 Arena 分配器还在工作，注意不要过早释放
+        return new Float32Array(emaResult);
+    }
+
+    /**
+     * 辅助方法：在 WASM 中申请浮点数组空间
+     */
+    private allocFloatArray(count: number): number {
+        return this.exports.alloc_memory(count * 4);
+    }
+
+    public freeMemory() {
+        this.exports.free_memory();
     }
 }

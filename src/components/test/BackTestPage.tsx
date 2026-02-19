@@ -56,13 +56,19 @@ export default function BacktestPage() {
         const config = getAutoConfig(lines[0]);
         // console.log('识别到的列配置:', config);
 
-        // 2. 执行解析并计时
         const start = performance.now();
-        const result = engine.parse(text, config);
+        const { bars, barsPtr, count } = engine.parse(text, config);
+        const ema20Array =
+            engine.calculateEma(barsPtr, count, 20);
+        const ema60Array =
+            engine.calculateEma(barsPtr, count, 60);
+
+        engine.freeMemory();
+
         const end = performance.now();
 
         setParsingTime(end - start);
-        setData(result);
+        setData(bars);
     };
 
     return (
