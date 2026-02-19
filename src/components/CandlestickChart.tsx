@@ -35,7 +35,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         } = {},
     } = props;
 
-    const chartContainerRef = useRef<HTMLDivElement>(null);
+    const chartContainerRef = useRef<HTMLDivElement>(null!);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
     // 新增一个 ref 来持有 EMA 线的实例
@@ -49,22 +49,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
             chart.applyOptions({ width: chartContainerRef.current!.clientWidth });
         };
 
-        const chart = createChart(chartContainerRef.current, {
-            layout: {
-                background: { type: ColorType.Solid, color: backgroundColor },
-                textColor,
-            },
-            width: chartContainerRef.current.clientWidth,
-            height: 500, // 你可以根据需要调整高度
-            grid: {
-                vertLines: { color: '#f0f3fa' },
-                horzLines: { color: '#f0f3fa' },
-            },
-            timeScale: {
-                borderColor: '#f0f3fa',
-                timeVisible: true, // 显示具体时间
-            },
-        });
+        const chart = makeChart(chartContainerRef, backgroundColor, textColor);
 
         chartRef.current = chart;
 
@@ -129,3 +114,26 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
 
     return <div ref={chartContainerRef} className="w-full relative" />;
 };
+
+function makeChart(
+    chartContainerRef: React.RefObject<HTMLDivElement>,
+    backgroundColor: string,
+    textColor: string
+): IChartApi {
+    return createChart(chartContainerRef.current, {
+        layout: {
+            background: {type: ColorType.Solid, color: backgroundColor},
+            textColor,
+        },
+        width: chartContainerRef.current.clientWidth,
+        height: 500, // 你可以根据需要调整高度
+        grid: {
+            vertLines: {color: '#f0f3fa'},
+            horzLines: {color: '#f0f3fa'},
+        },
+        timeScale: {
+            borderColor: '#f0f3fa',
+            timeVisible: true, // 显示具体时间
+        },
+    });;
+}
