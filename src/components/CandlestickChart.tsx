@@ -77,17 +77,20 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         });
         seriesRef.current = newSeries;
 
-        handleIndicator(bars, chart, indicatorSeriesMap, indicators);
-        
         // 3. 监听窗口大小变化
         window.addEventListener('resize', handleResize);
 
+        const mapCurrent =
+            indicatorSeriesMap.current;
+        
         // 4. 清理函数：组件卸载时销毁图表
         return () => {
             window.removeEventListener('resize', handleResize);
             chart.remove();
+            // 🌟 关键：销毁图表时必须清空 Map 注册表
+            mapCurrent.clear();
         };
-    }, [backgroundColor, bars, indicators, textColor]);
+    }, [backgroundColor, textColor]);
 
     // 5. 当数据变化时，更新图表数据
     useEffect(() => {
@@ -103,6 +106,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         }));
         seriesRef.current.setData(chartData);
 
+        handleIndicator(bars, chart, indicatorSeriesMap, indicators);
+        
         // 3. 🌟 数据已安全进入图表库，通知外部释放 WASM 内存
         if (onDataReadyToFree) {
             onDataReadyToFree();
@@ -150,11 +155,20 @@ function handleIndicator(
         return;
     }
 
+    // 第一步：清理已失效的线
+    const activeNames = new Set(indicators.map(i => i.name));
+    indicatorSeriesMap.current.forEach((series, name) => {
+        if (!activeNames.has(name)) {
+            chart.removeSeries(series);
+            indicatorSeriesMap.current.delete(name);
+        }
+    });
+
     indicators.forEach(ind => {
         // 如果该指标线还不存在，则创建它
-        /*if (indicatorSeriesMap.current.has(ind.name)) {
+        if (indicatorSeriesMap.current.has(ind.name)) {
             return;
-        }*/
+        }
 
         const newLine = chart.addSeries(LineSeries, {
             color: ind.color, // 设置为橙色，显眼一点
@@ -178,18 +192,7 @@ function handleIndicator(
         }
         newLine.setData(lineData);
 
-        // indicatorSeriesMap.current.set(ind.name, newLine);
+        indicatorSeriesMap.current.set(ind.name, newLine);
     });
-
-    // 清理掉不再存在的指标轨道
-    /*const currentNames = new Set(indicators.map(i => i.name));
-    indicatorSeriesMap.current.forEach((series, name) => {
-        if (currentNames.has(name)) {
-            return;
-        }
-
-        chart.removeSeries(series);
-        indicatorSeriesMap.current.delete(name);
-    });*/
 }
 
