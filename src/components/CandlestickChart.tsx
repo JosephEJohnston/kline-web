@@ -65,7 +65,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         };
 
         const chart = makeChart(chartContainerRef, backgroundColor, textColor);
-        chartRef.current = makeChart(chartContainerRef, backgroundColor, textColor);
+        chartRef.current = chart;
 
         // 2. 添加 K 线系列
         seriesRef.current = makeBar(chart);
@@ -171,16 +171,17 @@ function handleIndicator(
 
     indicators.forEach(ind => {
         // 如果该指标线还不存在，则创建它
-        if (indicatorSeriesMap.current.has(ind.name)) {
-            return;
-        }
+        let lineSeries =
+            indicatorSeriesMap.current.get(ind.name);
 
-        const newLine = chart.addSeries(LineSeries, {
-            color: ind.color, // 设置为橙色，显眼一点
-            lineWidth: 2,
-            lineStyle: LineStyle.Solid,
-            title: ind.name, // 图例标题
-        });
+        if (!lineSeries) {
+            lineSeries = chart.addSeries(LineSeries, {
+                color: ind.color, // 设置为橙色，显眼一点
+                lineWidth: 2,
+                lineStyle: LineStyle.Solid,
+                title: ind.name, // 图例标题
+            });
+        }
 
         // 转换平行数组为图表格式
         const lineData = [];
@@ -195,9 +196,9 @@ function handleIndicator(
             }
             lineData.push(dot);
         }
-        newLine.setData(lineData);
+        lineSeries.setData(lineData);
 
-        indicatorSeriesMap.current.set(ind.name, newLine);
+        indicatorSeriesMap.current.set(ind.name, lineSeries);
     });
 }
 
