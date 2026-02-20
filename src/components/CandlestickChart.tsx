@@ -162,7 +162,6 @@ function handleIndicator(
             lineStyle: LineStyle.Solid,
             title: ind.name,
         });
-        indicatorSeriesMap.current.set(ind.name, newLine);
 
         // 转换平行数组为图表格式
         const lineData = [];
@@ -177,7 +176,9 @@ function handleIndicator(
             }
             lineData.push(dot);
         }
-        indicatorSeriesMap.current.get(ind.name)?.setData(lineData);
+        newLine.setData(lineData);
+
+        indicatorSeriesMap.current.set(ind.name, newLine);
     });
 
     // 清理掉不再存在的指标轨道
