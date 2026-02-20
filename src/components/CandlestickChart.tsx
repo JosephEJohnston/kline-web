@@ -46,7 +46,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     } = props;
 
     const chartContainerRef = useRef<HTMLDivElement>(null!);
-    const chartRef = useRef<IChartApi | null>(null);
+    const chartRef = useRef<IChartApi>(null!);
     const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
     // 🌟 关键：使用 Map 管理动态生成的指标线
     // Key 为指标名称 (如 "EMA20")，Value 为图表库的 Series 实例
@@ -77,6 +77,31 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         // 3. 监听窗口大小变化
         window.addEventListener('resize', handleResize);
 
+        // 4. 清理函数：组件卸载时销毁图表
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            chart.remove();
+        };
+    }, [backgroundColor, textColor]);
+
+    // 5. 当数据变化时，更新图表数据
+    useEffect(() => {
+        if (!seriesRef.current || bars.length === 0) return;
+        const chart = chartRef.current;
+
+        // 【关键】数据格式转换
+        // Lightweight Charts 需要的时间戳是秒（Number 类型）
+        // 你的 WASM 解析出来的是纳秒（BigInt 类型）
+        const chartData = bars.map(bar => ({
+            time: Number(bar.time) as UTCTimestamp, // 将纳秒转为秒
+            open: bar.open,
+            high: bar.high,
+            low: bar.low,
+            close: bar.close,
+        }));
+        seriesRef.current.setData(chartData);
+
+        // B. 同步平行指标数组
         if (indicators) {
             indicators.forEach(ind => {
                 // 如果该指标线还不存在，则创建它
@@ -98,33 +123,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
                     indicatorSeriesMap.current.delete(name);
                 }
             });
-        }
-        
-        // 4. 清理函数：组件卸载时销毁图表
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            chart.remove();
-        };
-    }, [backgroundColor, indicators, textColor]);
 
-    // 5. 当数据变化时，更新图表数据
-    useEffect(() => {
-        if (!seriesRef.current || bars.length === 0) return;
-
-        // 【关键】数据格式转换
-        // Lightweight Charts 需要的时间戳是秒（Number 类型）
-        // 你的 WASM 解析出来的是纳秒（BigInt 类型）
-        const chartData = bars.map(bar => ({
-            time: Number(bar.time) as UTCTimestamp, // 将纳秒转为秒
-            open: bar.open,
-            high: bar.high,
-            low: bar.low,
-            close: bar.close,
-        }));
-        seriesRef.current.setData(chartData);
-
-        // B. 同步平行指标数组
-        if (indicators) {
             indicators.forEach(ind => {
                 // 转换平行数组为图表格式
                 const lineData = [];
