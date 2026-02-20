@@ -27,13 +27,14 @@ export default function BacktestPage() {
         if (!file || !engine) return;
 
         const text = await file.text();
-        const lines = text.split('\n');
-        if (lines.length < 2) return;
+        const firstLineEnd = text.indexOf('\n');
+        const firstLine = text.substring(0, firstLineEnd);
+        if (firstLine.length < 2) return;
 
         // console.log('text: ' + text);
 
         // 1. 获取动态配置
-        const config = getAutoConfig(lines[0]);
+        const config = getAutoConfig(firstLine);
         // console.log('识别到的列配置:', config);
 
         const start = performance.now();

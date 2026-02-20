@@ -41,7 +41,7 @@ type ChartIndicatorLine = ISeriesApi<"Line">;
 export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     const {
         bars,
-        indicators,
+        indicators = [],
         onDataReadyToFree,
         colors: {
             backgroundColor = 'white',
@@ -153,12 +153,8 @@ function handleIndicator(
     bars: Bar[],
     chart: IChartApi,
     indicatorSeriesMap: React.RefObject<Map<string, ChartIndicatorLine>>,
-    indicators?: IndicatorData[],
+    indicators: IndicatorData[],
 ) {
-    // B. 同步平行指标数组
-    if (!indicators) {
-        return;
-    }
 
     // 第一步：清理已失效的线
     const activeNames = new Set(indicators.map(i => i.name));
