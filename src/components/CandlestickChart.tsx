@@ -2,16 +2,14 @@
 
 import React, {useEffect, useRef} from 'react';
 import {
-    createChart,
+    CandlestickSeries,
     ColorType,
+    createChart,
     IChartApi,
     ISeriesApi,
-    CandlestickSeries,
+    LineSeries,
+    LineStyle,
     UTCTimestamp,
-    LineSeries, LineStyle, Time,
-    WhitespaceData,
-    LineSeriesOptions,
-    LineData, DeepPartial, LineStyleOptions, SeriesOptionsCommon
 } from 'lightweight-charts';
 import {Bar} from '@/lib/KlineEngine'; // 引入你定义的 Bar 接口
 
@@ -36,6 +34,9 @@ interface CandlestickChartProps {
         areaBottomColor?: string;
     };
 }
+
+type ChartCandlestickSeries = ISeriesApi<"Candlestick">;
+type ChartIndicatorLine = ISeriesApi<"Line">;
 
 export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     const {
@@ -64,18 +65,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         };
 
         const chart = makeChart(chartContainerRef, backgroundColor, textColor);
-
-        chartRef.current = chart;
+        chartRef.current = makeChart(chartContainerRef, backgroundColor, textColor);
 
         // 2. 添加 K 线系列
-        const newSeries = chart.addSeries(CandlestickSeries, {
-            upColor: '#26a69a', // 涨的颜色
-            downColor: '#ef5350', // 跌的颜色
-            borderVisible: false,
-            wickUpColor: '#26a69a',
-            wickDownColor: '#ef5350',
-        });
-        seriesRef.current = newSeries;
+        seriesRef.current = makeBar(chart);
 
         // 3. 监听窗口大小变化
         window.addEventListener('resize', handleResize);
@@ -144,10 +137,22 @@ function makeChart(
     });
 }
 
+function makeBar(
+    chart: IChartApi,
+): ChartCandlestickSeries {
+    return chart.addSeries(CandlestickSeries, {
+        upColor: '#26a69a', // 涨的颜色
+        downColor: '#ef5350', // 跌的颜色
+        borderVisible: false,
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350',
+    });;
+}
+
 function handleIndicator(
     bars: Bar[],
     chart: IChartApi,
-    indicatorSeriesMap: React.RefObject<Map<string, ISeriesApi<"Line", Time, WhitespaceData<Time> | LineData<Time>, LineSeriesOptions, DeepPartial<LineStyleOptions & SeriesOptionsCommon>>>>,
+    indicatorSeriesMap: React.RefObject<Map<string, ChartIndicatorLine>>,
     indicators?: IndicatorData[],
 ) {
     // B. 同步平行指标数组
