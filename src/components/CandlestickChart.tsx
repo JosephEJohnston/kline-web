@@ -77,40 +77,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         });
         seriesRef.current = newSeries;
 
-        if (indicators) {
-            indicators.forEach(ind => {
-                // 如果该指标线还不存在，则创建它
-                if (indicatorSeriesMap.current.has(ind.name)) {
-                    return;
-                }
-
-                const newLine = chart.addSeries(LineSeries, {
-                    color: ind.color, // 设置为橙色，显眼一点
-                    lineWidth: 2,
-                    lineStyle: LineStyle.Solid,
-                    title: ind.name, // 图例标题
-                });
-
-                // 转换平行数组为图表格式
-                const lineData = [];
-                for (let i = 0; i < ind.data.length; i++) {
-                    const val = ind.data[i];
-                    /*if (val <= 0) { // 过滤掉初始周期的 0 值
-                        continue;
-                    }*/
-                    const dot = {
-                        time: Number(bars[i].time) as UTCTimestamp,
-                        value: val,
-                    }
-                    lineData.push(dot);
-                }
-                newLine.setData(lineData);
-
-                indicatorSeriesMap.current.set(ind.name, newLine);
-            });
-        }
-
-        // handleIndicator(bars, chart, indicatorSeriesMap, indicators);
+        handleIndicator(bars, chart, indicatorSeriesMap, indicators);
         
         // 3. 监听窗口大小变化
         window.addEventListener('resize', handleResize);
@@ -185,24 +152,24 @@ function handleIndicator(
 
     indicators.forEach(ind => {
         // 如果该指标线还不存在，则创建它
-        if (indicatorSeriesMap.current.has(ind.name)) {
+        /*if (indicatorSeriesMap.current.has(ind.name)) {
             return;
-        }
+        }*/
 
         const newLine = chart.addSeries(LineSeries, {
-            color: '#FF9800', // 设置为橙色，显眼一点
+            color: ind.color, // 设置为橙色，显眼一点
             lineWidth: 2,
             lineStyle: LineStyle.Solid,
-            title: 'EMA25', // 图例标题
+            title: ind.name, // 图例标题
         });
 
         // 转换平行数组为图表格式
         const lineData = [];
         for (let i = 0; i < ind.data.length; i++) {
             const val = ind.data[i];
-            /*if (val <= 0) { // 过滤掉初始周期的 0 值
+            if (val <= 0) { // 过滤掉初始周期的 0 值
                 continue;
-            }*/
+            }
             const dot = {
                 time: Number(bars[i].time) as UTCTimestamp,
                 value: val,
@@ -211,7 +178,7 @@ function handleIndicator(
         }
         newLine.setData(lineData);
 
-        indicatorSeriesMap.current.set(ind.name, newLine);
+        // indicatorSeriesMap.current.set(ind.name, newLine);
     });
 
     // 清理掉不再存在的指标轨道
