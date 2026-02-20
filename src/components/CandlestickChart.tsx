@@ -105,26 +105,19 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         if (indicators) {
             indicators.forEach(ind => {
                 // 如果该指标线还不存在，则创建它
-                if (!indicatorSeriesMap.current.has(ind.name)) {
-                    const newLine = chart.addSeries(LineSeries, {
-                        color: ind.color || '#2962FF',
-                        lineWidth: 2,
-                        title: ind.name,
-                    });
-                    indicatorSeriesMap.current.set(ind.name, newLine);
+                if (indicatorSeriesMap.current.has(ind.name)) {
+                    return;
                 }
-            });
 
-            // 清理掉不再存在的指标轨道
-            const currentNames = new Set(indicators.map(i => i.name));
-            indicatorSeriesMap.current.forEach((series, name) => {
-                if (!currentNames.has(name)) {
-                    chart.removeSeries(series);
-                    indicatorSeriesMap.current.delete(name);
-                }
-            });
+                console.log('ind : ', ind)
 
-            indicators.forEach(ind => {
+                const newLine = chart.addSeries(LineSeries, {
+                    color: ind.color || '#2962FF',
+                    lineWidth: 2,
+                    title: ind.name,
+                });
+                indicatorSeriesMap.current.set(ind.name, newLine);
+
                 // 转换平行数组为图表格式
                 const lineData = [];
                 for (let i = 0; i < ind.data.length; i++) {
@@ -138,6 +131,17 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
                 }
                 indicatorSeriesMap.current.get(ind.name)?.setData(lineData);
             });
+
+            // 清理掉不再存在的指标轨道
+            /*const currentNames = new Set(indicators.map(i => i.name));
+            indicatorSeriesMap.current.forEach((series, name) => {
+                if (currentNames.has(name)) {
+                    return;
+                }
+
+                chart.removeSeries(series);
+                indicatorSeriesMap.current.delete(name);
+            });*/
         }
 
         // 3. 🌟 数据已安全进入图表库，通知外部释放 WASM 内存
