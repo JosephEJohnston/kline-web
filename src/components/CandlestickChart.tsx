@@ -92,9 +92,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         if (!seriesRef.current || bars.length === 0) return;
         const chart = chartRef.current;
 
-        // 【关键】数据格式转换
-        // Lightweight Charts 需要的时间戳是秒（Number 类型）
-        // 你的 WASM 解析出来的是纳秒（BigInt 类型）
         const chartData = bars.map(bar => ({
             time: Number(bar.time) as UTCTimestamp, // 将纳秒转为秒
             open: bar.open,
@@ -171,12 +168,14 @@ function handleIndicator(
         const lineData = [];
         for (let i = 0; i < ind.data.length; i++) {
             const val = ind.data[i];
-            if (val > 0) { // 过滤掉初始周期的 0 值
-                lineData.push({
-                    time: Number(bars[i].time) as UTCTimestamp,
-                    value: val,
-                });
+            if (val <= 0) { // 过滤掉初始周期的 0 值
+                continue;
             }
+            const dot = {
+                time: Number(bars[i].time) as UTCTimestamp,
+                value: val,
+            }
+            lineData.push(dot);
         }
         indicatorSeriesMap.current.get(ind.name)?.setData(lineData);
     });
