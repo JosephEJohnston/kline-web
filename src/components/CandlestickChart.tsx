@@ -54,7 +54,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     // 🌟 关键：使用 Map 管理动态生成的指标线
     // Key 为指标名称 (如 "EMA20")，Value 为图表库的 Series 实例
     const indicatorSeriesMap = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
-    const emaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -78,14 +77,41 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         });
         seriesRef.current = newSeries;
 
-        const emaSeries = chart.addSeries(LineSeries, {
-            color: '#FF9800', // 设置为橙色，显眼一点
-            lineWidth: 2,
-            lineStyle: LineStyle.Solid,
-            title: 'EMA20', // 图例标题
-        });
-        emaSeriesRef.current = emaSeries;
+        if (indicators) {
+            indicators.forEach(ind => {
+                // 如果该指标线还不存在，则创建它
+                if (indicatorSeriesMap.current.has(ind.name)) {
+                    return;
+                }
 
+                const newLine = chart.addSeries(LineSeries, {
+                    color: ind.color, // 设置为橙色，显眼一点
+                    lineWidth: 2,
+                    lineStyle: LineStyle.Solid,
+                    title: ind.name, // 图例标题
+                });
+
+                // 转换平行数组为图表格式
+                const lineData = [];
+                for (let i = 0; i < ind.data.length; i++) {
+                    const val = ind.data[i];
+                    /*if (val <= 0) { // 过滤掉初始周期的 0 值
+                        continue;
+                    }*/
+                    const dot = {
+                        time: Number(bars[i].time) as UTCTimestamp,
+                        value: val,
+                    }
+                    lineData.push(dot);
+                }
+                newLine.setData(lineData);
+
+                indicatorSeriesMap.current.set(ind.name, newLine);
+            });
+        }
+
+        // handleIndicator(bars, chart, indicatorSeriesMap, indicators);
+        
         // 3. 监听窗口大小变化
         window.addEventListener('resize', handleResize);
 
@@ -94,11 +120,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
             window.removeEventListener('resize', handleResize);
             chart.remove();
         };
-    }, [backgroundColor, textColor]);
+    }, [backgroundColor, bars, indicators, textColor]);
 
     // 5. 当数据变化时，更新图表数据
     useEffect(() => {
-        if (!seriesRef.current || !emaSeriesRef.current || bars.length === 0) return;
+        if (!seriesRef.current || bars.length === 0) return;
         const chart = chartRef.current;
 
         const chartData = bars.map(bar => ({
@@ -109,19 +135,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
             close: bar.close,
         }));
         seriesRef.current.setData(chartData);
-
-        handleIndicator(bars, chart, indicatorSeriesMap, indicators);
-
-        if (indicators) {
-            const lineData = [];
-            for (let i = 0; i < bars.length; i++) {
-                lineData.push({
-                    time: Number(bars[i].time) as UTCTimestamp,
-                    value: indicators[1].data[i], // LineSeries 只需要 time 和 value
-                });
-            }
-            emaSeriesRef.current.setData(lineData);
-        }
 
         // 3. 🌟 数据已安全进入图表库，通知外部释放 WASM 内存
         if (onDataReadyToFree) {
@@ -177,19 +190,19 @@ function handleIndicator(
         }
 
         const newLine = chart.addSeries(LineSeries, {
-            color: ind.color || '#2962FF',
+            color: '#FF9800', // 设置为橙色，显眼一点
             lineWidth: 2,
             lineStyle: LineStyle.Solid,
-            title: ind.name,
+            title: 'EMA25', // 图例标题
         });
 
         // 转换平行数组为图表格式
         const lineData = [];
         for (let i = 0; i < ind.data.length; i++) {
             const val = ind.data[i];
-            if (val <= 0) { // 过滤掉初始周期的 0 值
+            /*if (val <= 0) { // 过滤掉初始周期的 0 值
                 continue;
-            }
+            }*/
             const dot = {
                 time: Number(bars[i].time) as UTCTimestamp,
                 value: val,
