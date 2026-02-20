@@ -54,6 +54,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     // 🌟 关键：使用 Map 管理动态生成的指标线
     // Key 为指标名称 (如 "EMA20")，Value 为图表库的 Series 实例
     const indicatorSeriesMap = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
+    const emaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -77,6 +78,14 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         });
         seriesRef.current = newSeries;
 
+        const emaSeries = chart.addSeries(LineSeries, {
+            color: '#FF9800', // 设置为橙色，显眼一点
+            lineWidth: 2,
+            lineStyle: LineStyle.Solid,
+            title: 'EMA20', // 图例标题
+        });
+        emaSeriesRef.current = emaSeries;
+
         // 3. 监听窗口大小变化
         window.addEventListener('resize', handleResize);
 
@@ -89,7 +98,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
 
     // 5. 当数据变化时，更新图表数据
     useEffect(() => {
-        if (!seriesRef.current || bars.length === 0) return;
+        if (!seriesRef.current || !emaSeriesRef.current || bars.length === 0) return;
         const chart = chartRef.current;
 
         const chartData = bars.map(bar => ({
@@ -102,6 +111,17 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         seriesRef.current.setData(chartData);
 
         handleIndicator(bars, chart, indicatorSeriesMap, indicators);
+
+        if (indicators) {
+            const lineData = [];
+            for (let i = 0; i < bars.length; i++) {
+                lineData.push({
+                    time: Number(bars[i].time) as UTCTimestamp,
+                    value: indicators[1].data[i], // LineSeries 只需要 time 和 value
+                });
+            }
+            emaSeriesRef.current.setData(lineData);
+        }
 
         // 3. 🌟 数据已安全进入图表库，通知外部释放 WASM 内存
         if (onDataReadyToFree) {
