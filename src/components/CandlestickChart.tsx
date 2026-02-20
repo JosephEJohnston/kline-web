@@ -192,3 +192,4 @@ function handleIndicator(
         indicatorSeriesMap.current.delete(name);
     });*/
 }
+
