@@ -1,13 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { KlineEngine, Bar, KlineConfig } from '@/lib/KlineEngine';
+import {KlineEngine, Bar, KlineConfig, QuantContextView} from '@/lib/KlineEngine';
 import {CandlestickChart, IndicatorData} from "@/components/CandlestickChart";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
     const [bars, setBars] = useState<Bar[]>([]);
     const [parsingTime, setParsingTime] = useState<number>(0);
-
+    const [dataView, setDataView] = useState<QuantContextView | undefined>(undefined);
     // 1. 定义状态
     const [indicators, setIndicators] = useState<IndicatorData[]>([]);
 
@@ -46,6 +46,7 @@ export default function BacktestPage() {
 
         const end = performance.now();
 
+        setDataView(quantContext);
         setParsingTime(end - start);
         setBars(bars);
         setIndicators([
@@ -84,7 +85,7 @@ export default function BacktestPage() {
                     <div className="p-4 border rounded-xl bg-white shadow-sm">
                         <h2 className="text-lg font-semibold mb-4 text-gray-700">价格走势图</h2>
                         <CandlestickChart
-                            bars={bars}
+                            dataView={dataView}
                             indicators={indicators}
                             onDataReadyToFree={handleCleanup}
                         />
