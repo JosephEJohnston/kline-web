@@ -57,9 +57,10 @@ export default function BacktestPage() {
 
     return (
         <div className="p-10 max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-4">Zig + WASM 高性能回测引擎</h1>
+            <h1 className="text-2xl font-bold mb-4 text-gray-800">Zig + WASM 高性能回测引擎</h1>
 
-            <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+            {/* 1. 文件上传区 */}
+            <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                 <input
                     type="file"
                     onChange={handleFileUpload}
@@ -68,22 +69,27 @@ export default function BacktestPage() {
                 />
             </div>
 
-            {bars.length > 0 && (
-                <div className="mt-8 space-y-4">
+            {/* 🌟 2. 核心逻辑：使用 dataView 进行条件渲染 */}
+            {dataView && dataView.count > 0 && (
+                <div className="mt-8 space-y-4 animate-in fade-in duration-500">
+                    {/* 性能看板 */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-blue-50 rounded shadow-sm">
-                            <p className="text-gray-500 text-sm">解析行数</p>
-                            <p className="text-2xl font-mono font-bold">{bars.length.toLocaleString()}</p>
+                        <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl shadow-sm">
+                            <p className="text-blue-600 text-xs font-semibold uppercase tracking-wider">解析行数 (Actual)</p>
+                            <p className="text-2xl font-mono font-bold text-blue-900">{dataView.count.toLocaleString()}</p>
                         </div>
-                        <div className="p-4 bg-green-50 rounded shadow-sm">
-                            <p className="text-gray-500 text-sm">WASM 耗时</p>
-                            <p className="text-2xl font-mono font-bold">{parsingTime.toFixed(2)} ms</p>
+                        <div className="p-4 bg-green-50 border border-green-100 rounded-xl shadow-sm">
+                            <p className="text-green-600 text-xs font-semibold uppercase tracking-wider">WASM 引擎耗时</p>
+                            <p className="text-2xl font-mono font-bold text-green-900">{parsingTime.toFixed(3)} ms</p>
                         </div>
                     </div>
 
-                    {/* 2. 插入蜡烛图组件 */}
-                    <div className="p-4 border rounded-xl bg-white shadow-sm">
-                        <h2 className="text-lg font-semibold mb-4 text-gray-700">价格走势图</h2>
+                    {/* 3. 价格走势图组件 */}
+                    <div className="p-4 border border-gray-100 rounded-2xl bg-white shadow-lg">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-lg font-semibold text-gray-700">实时 K 线图 (EMA20 系统)</h2>
+                            <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">WASM 零拷贝渲染</span>
+                        </div>
                         <CandlestickChart
                             dataView={dataView}
                             indicators={indicators}
@@ -91,26 +97,32 @@ export default function BacktestPage() {
                         />
                     </div>
 
-                    <div className="border rounded overflow-hidden">
+                    {/* 4. 数据预览表格：直接从 TypedArray 读取，不创建中间对象 */}
+                    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time (Raw)</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Close</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Volume</th>
+                                <th className="px-4 py-2 text-left text-xs font-bold text-gray-400 uppercase">Index</th>
+                                <th className="px-4 py-2 text-left text-xs font-bold text-gray-400 uppercase">Time (Unix)</th>
+                                <th className="px-4 py-2 text-left text-xs font-bold text-gray-400 uppercase">Close</th>
+                                <th className="px-4 py-2 text-left text-xs font-bold text-gray-400 uppercase">Volume</th>
                             </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200 font-mono text-sm">
-                            {bars.slice(0, 5).map((bar, i) => (
-                                <tr key={i}>
-                                    <td className="px-4 py-2">{bar.time.toString()}</td>
-                                    <td className="px-4 py-2 text-blue-600">{bar.close.toFixed(2)}</td>
-                                    <td className="px-4 py-2 text-gray-600">{bar.volume.toFixed(0)}</td>
+                            <tbody className="bg-white divide-y divide-gray-100 font-mono text-sm">
+                            {/* 🌟 关键：手动索引读取，避免 bars.slice().map() 产生的大量临时对象 */}
+                            {Array.from({ length: Math.min(dataView.count, 5) }).map((_, i) => (
+                                <tr key={i} className="hover:bg-blue-50/30 transition-colors">
+                                    <td className="px-4 py-2 text-gray-400 text-xs">#{i}</td>
+                                    <td className="px-4 py-2 text-gray-700">{dataView.times[i].toString()}</td>
+                                    <td className="px-4 py-2 text-blue-600 font-bold">{dataView.closes[i].toFixed(2)}</td>
+                                    <td className="px-4 py-2 text-gray-500">{dataView.volumes[i].toFixed(0)}</td>
                                 </tr>
                             ))}
                             </tbody>
                         </table>
-                        <p className="p-2 text-center text-xs text-gray-400">仅展示前 5 条数据</p>
+                        <div className="p-3 bg-gray-50 text-center text-xs text-gray-400 italic">
+                            直接映射 WASM 线性内存地址 · 仅展示前 5 条采样
+                        </div>
                     </div>
                 </div>
             )}
