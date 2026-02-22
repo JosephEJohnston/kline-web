@@ -9,6 +9,21 @@ export interface Bar {
     _pad: number;
 }
 
+/**
+ * 对应 QuantContext 在 WASM 内存中的结构布局
+ */
+export interface QuantContextView {
+    times: BigInt64Array;
+    opens: Float32Array;
+    highs: Float32Array;
+    lows: Float32Array;
+    closes: Float32Array;
+    volumes: Float32Array;
+    attributes: Uint8Array;
+    count: number;
+    ctxPtr: number; // 结构体本身的指针，用于传回给 calculate_ema 等函数
+}
+
 export interface KlineConfig {
     time_idx: number;
     open_idx: number;
@@ -63,20 +78,17 @@ export class KlineEngine {
         return new KlineEngine(instance);
     }
 
-    public parse(csvText: string, config: KlineConfig): { bars: Bar[], barsPtr: number, count: number } {
+    public parse(csvText: string, config: KlineConfig): QuantContextView {
         const encoder = new TextEncoder();
         const bytes = encoder.encode(csvText);
         const len = bytes.length;
 
-        // 1. 在 WASM 内存里申请地盘
+        // 1. 申请内存并拷贝数据 (与之前一致)
         const ptr = this.exports.alloc_memory(len);
+        new Uint8Array(this.exports.memory.buffer).set(bytes, ptr);
 
-        // 2. 将 JS 数据拷贝进 WASM 内存
-        const wasmMemory = new Uint8Array(this.exports.memory.buffer);
-        wasmMemory.set(bytes, ptr);
-
-        // 3. 调用 Zig 的解析函数
-        const barsPtr = this.exports.parse_csv_wasm(
+        // 2. 解析并获取 QuantContext 结构体的指针
+        const ctxPtr = this.exports.parse_csv_wasm(
             ptr,
             len,
             config.time_idx,
@@ -86,57 +98,72 @@ export class KlineEngine {
             config.close_idx,
             config.volume_idx
         );
-        const count = this.exports.get_last_parse_count();
 
-        // 4. 从二进制内存中读取 Bar 数组
-        const bars: Bar[] = [];
+        // 3. 这里的 count 建议直接从 WASM 获取最新准确值
+        const count = this.exports.get_last_parse_count();
         const view = new DataView(this.exports.memory.buffer);
 
-        for (let i = 0; i < count; i++) {
-            const offset = barsPtr + (i * BAR_SIZE);
-            bars.push({
-                // DataView 默认是大端序，但 WASM 是小端序 (Little Endian)，所以第三个参数传 true
-                time: view.getBigInt64(offset + 0, true),
-                open: view.getFloat32(offset + 8, true),
-                high: view.getFloat32(offset + 12, true),
-                low: view.getFloat32(offset + 16, true),
-                close: view.getFloat32(offset + 20, true),
-                volume: view.getFloat32(offset + 24, true),
-                // 读取偏移量为 28 的 _pad 字段
-                _pad: view.getFloat32(offset + 28, true),
-            });
-        }
+        /**
+         * 🌟 关键：拆解 Zig 结构体 (32位 WASM 指针宽度为 4 字节)
+         * 根据 QuantContext 结构体的定义顺序读取指针地址
+         */
+        const timePtr   = view.getUint32(ctxPtr + 0,  true);
+        const openPtr   = view.getUint32(ctxPtr + 4,  true);
+        const highPtr   = view.getUint32(ctxPtr + 8,  true);
+        const lowPtr    = view.getUint32(ctxPtr + 12, true);
+        const closePtr  = view.getUint32(ctxPtr + 16, true);
+        const volumePtr = view.getUint32(ctxPtr + 20, true);
+        const attrPtr   = view.getUint32(ctxPtr + 24, true);
 
-        return {bars, barsPtr, count};
+        // 4. “零拷贝”视图绑定
+        // 直接操作同一块内存，这才是 1000 万目标级别的回测性能
+        return {
+            times:      new BigInt64Array(this.exports.memory.buffer, timePtr,   count),
+            opens:      new Float32Array(this.exports.memory.buffer, openPtr,   count),
+            highs:      new Float32Array(this.exports.memory.buffer, highPtr,   count),
+            lows:       new Float32Array(this.exports.memory.buffer, lowPtr,    count),
+            closes:     new Float32Array(this.exports.memory.buffer, closePtr,  count),
+            volumes:    new Float32Array(this.exports.memory.buffer, volumePtr, count),
+            attributes: new Uint8Array(this.exports.memory.buffer,   attrPtr,   count),
+            count,
+            ctxPtr
+        };
     }
 
     /**
      * 计算 EMA 指标（平行数组版）
-     * @param barsPtr 基础 K 线数据的 WASM 指针
-     * @param count 数据行数
+     * @param ctxPtr
      * @param period 均线周期 (如 20)
      * @returns 包含 EMA 值的 Float32Array
      */
-    public calculateEma(barsPtr: number, count: number, period: number): Float32Array {
-        // 1. 申请一块新的内存空间存放计算结果 (f32 占用 4 字节)
-        // 建议在 Zig 侧导出这个 allocFloatArray 函数
-        const outputPtr = this.allocFloatArray(count);
+    public calculateEma(ctxPtr: number, period: number): Float32Array {
+        const view = new DataView(this.exports.memory.buffer);
 
-        // 2. 调用 Zig 导出的计算函数
-        // 签名：(bars_ptr, len, period, output_ptr)
-        this.exports.calculate_ema(barsPtr, count, period, outputPtr);
+        // 1. 从 QuantContext 结构体中读取 count (offset 为 28)
+        // 这样保证了 TS 分配的大小与 Zig 解析出的数量严格对齐
+        const count = view.getUint32(ctxPtr + 28, true);
 
-        // 3. 将 WASM 内存映射为 JS 的 Float32Array（零拷贝读取）
-        // 注意：这只是一个视图，并没有发生大规模数据拷贝
-        const emaResult = new Float32Array(
+        if (count === 0) return new Float32Array(0);
+
+        // 2. 申请存放计算结果的内存 (f32 占用 4 字节)
+        // 直接复用你之前写的 alloc_memory
+        const outputPtr = this.exports.alloc_memory(count * 4);
+
+        // 3. 调用 Zig 导出的计算函数 (🌟 只有 3 个参数)
+        // 签名: (ctxPtr, period, outputPtr)
+        this.exports.calculate_ema(ctxPtr, period, outputPtr);
+
+        // 4. “零拷贝”映射内存视图
+        const emaResultView = new Float32Array(
             this.exports.memory.buffer,
             outputPtr,
             count
         );
 
-        // 返回一份拷贝，或者让外部管理这块内存
-        // 如果你的 Arena 分配器还在工作，注意不要过早释放
-        return new Float32Array(emaResult);
+        // 🌟 核心建议：返回一个拷贝
+        // 因为你的 ArenaAllocator 可能在下一次 free_memory() 时把这块内存刷掉
+        // 如果是用于 React 渲染，建议直接 slice() 出来
+        return emaResultView.slice();
     }
 
     /**

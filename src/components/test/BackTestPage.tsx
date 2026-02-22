@@ -38,11 +38,11 @@ export default function BacktestPage() {
         // console.log('识别到的列配置:', config);
 
         const start = performance.now();
-        const { bars, barsPtr, count } = engine.parse(text, config);
+        const quantContext = engine.parse(text, config);
         const ema20Array =
-            engine.calculateEma(barsPtr, count, 20);
+            engine.calculateEma(quantContext.ctxPtr, 20);
         const ema60Array =
-            engine.calculateEma(barsPtr, count, 60);
+            engine.calculateEma(quantContext.ctxPtr, 60);
 
         const end = performance.now();
 
