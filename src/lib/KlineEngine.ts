@@ -1,5 +1,6 @@
 // 与 Zig 的 Bar struct 严格对应
 import {BacktestResult} from "@/components/test/BacktestResult";
+import {QuantContextView} from "@/lib/QuantContextView";
 
 export interface Bar {
     time: bigint;   // i64 -> bigint
@@ -9,21 +10,6 @@ export interface Bar {
     close: number;
     volume: number;
     _pad: number;
-}
-
-/**
- * 对应 QuantContext 在 WASM 内存中的结构布局
- */
-export interface QuantContextView {
-    times: BigInt64Array;
-    opens: Float32Array;
-    highs: Float32Array;
-    lows: Float32Array;
-    closes: Float32Array;
-    volumes: Float32Array;
-    attributes: Uint8Array;
-    count: number;
-    ctxPtr: number; // 结构体本身的指针，用于传回给 calculate_ema 等函数
 }
 
 export interface KlineConfig {
@@ -105,35 +91,7 @@ export class KlineEngine {
             config.volume_idx
         );
 
-        // 3. 这里的 count 建议直接从 WASM 获取最新准确值
-        const count = this.exports.get_last_parse_count();
-        const view = new DataView(this.exports.memory.buffer);
-
-        /**
-         * 🌟 关键：拆解 Zig 结构体 (32位 WASM 指针宽度为 4 字节)
-         * 根据 QuantContext 结构体的定义顺序读取指针地址
-         */
-        const timePtr   = view.getUint32(ctxPtr + 0,  true);
-        const openPtr   = view.getUint32(ctxPtr + 4,  true);
-        const highPtr   = view.getUint32(ctxPtr + 8,  true);
-        const lowPtr    = view.getUint32(ctxPtr + 12, true);
-        const closePtr  = view.getUint32(ctxPtr + 16, true);
-        const volumePtr = view.getUint32(ctxPtr + 20, true);
-        const attrPtr   = view.getUint32(ctxPtr + 24, true);
-
-        // 4. “零拷贝”视图绑定
-        // 直接操作同一块内存，这才是 1000 万目标级别的回测性能
-        return {
-            times:      new BigInt64Array(this.exports.memory.buffer, timePtr,   count),
-            opens:      new Float32Array(this.exports.memory.buffer, openPtr,   count),
-            highs:      new Float32Array(this.exports.memory.buffer, highPtr,   count),
-            lows:       new Float32Array(this.exports.memory.buffer, lowPtr,    count),
-            closes:     new Float32Array(this.exports.memory.buffer, closePtr,  count),
-            volumes:    new Float32Array(this.exports.memory.buffer, volumePtr, count),
-            attributes: new Uint8Array(this.exports.memory.buffer,   attrPtr,   count),
-            count,
-            ctxPtr
-        };
+        return new QuantContextView(this.exports.memory, ctxPtr);
     }
 
     /**

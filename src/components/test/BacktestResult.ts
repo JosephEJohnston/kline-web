@@ -15,7 +15,8 @@ export class BacktestResult {
     public readonly profits: Float32Array;
 
     constructor(wasmMemory: WebAssembly.Memory, descriptorPtr: number) {
-        const view = new DataView(wasmMemory.buffer);
+        const buffer = wasmMemory.buffer;
+        const view = new DataView(buffer);
 
         // 🌟 1. 读取基础计数与指标 (严格匹配 Zig extern struct 顺序)
         // 偏移量 20, 24, 28, 32, 36
@@ -35,8 +36,6 @@ export class BacktestResult {
         const pExitPri  = view.getUint32(descriptorPtr + 12, true);
         const pProfits  = view.getUint32(descriptorPtr + 16, true);
 
-        // 🌟 3. 构建视图 (共享内存，无数据拷贝)
-        const buffer = wasmMemory.buffer;
         this.entryIndices = new Uint32Array(buffer, pEntryIdx, this.count);
         this.exitIndices  = new Uint32Array(buffer, pExitIdx, this.count);
         this.entryPrices  = new Float32Array(buffer, pEntryPri, this.count);

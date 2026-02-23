@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import {KlineEngine, KlineConfig, QuantContextView} from '@/lib/KlineEngine';
+import {KlineEngine, KlineConfig} from '@/lib/KlineEngine';
 import {CandlestickChart, IndicatorData} from "@/components/CandlestickChart";
+import {QuantContextView} from "@/lib/QuantContextView";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
