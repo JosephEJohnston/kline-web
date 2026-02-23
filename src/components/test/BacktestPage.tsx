@@ -1,11 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
-import {KlineEngine, Bar, KlineConfig, QuantContextView} from '@/lib/KlineEngine';
+import {KlineEngine, KlineConfig, QuantContextView} from '@/lib/KlineEngine';
 import {CandlestickChart, IndicatorData} from "@/components/CandlestickChart";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
-    const [bars, setBars] = useState<Bar[]>([]);
     const [parsingTime, setParsingTime] = useState<number>(0);
     const [dataView, setDataView] = useState<QuantContextView | undefined>(undefined);
     // 1. 定义状态
@@ -38,7 +37,11 @@ export default function BacktestPage() {
         // console.log('识别到的列配置:', config);
 
         const start = performance.now();
+
         const quantContext = engine.parse(text, config);
+
+        engine.runAnalysis(quantContext.ctxPtr);
+
         const ema20Array =
             engine.calculateEma(quantContext.ctxPtr, 20);
         const ema60Array =
@@ -48,7 +51,7 @@ export default function BacktestPage() {
 
         setDataView(quantContext);
         setParsingTime(end - start);
-        setBars(bars);
+
         setIndicators([
             { name: 'EMA20', data: ema20Array, color: '#2962FF' },
             { name: 'EMA60', data: ema60Array, color: '#FF6D00' }

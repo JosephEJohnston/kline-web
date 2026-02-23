@@ -78,6 +78,10 @@ export class KlineEngine {
         return new KlineEngine(instance);
     }
 
+    public freeMemory() {
+        this.exports.free_memory();
+    }
+
     public parse(csvText: string, config: KlineConfig): QuantContextView {
         const encoder = new TextEncoder();
         const bytes = encoder.encode(csvText);
@@ -167,13 +171,19 @@ export class KlineEngine {
     }
 
     /**
-     * 辅助方法：在 WASM 中申请浮点数组空间
+     * 执行价格行为分析 (Price Action Analysis)
+     * 调用后，QuantContextView 中的 attributes 数组将被填充 Trend Bar 和 Inside Bar 等标签
+     * @param ctxPtr QuantContext 的内存指针
      */
-    private allocFloatArray(count: number): number {
-        return this.exports.alloc_memory(count * 4);
-    }
+    public runAnalysis(ctxPtr: number): void {
+        // 检查指针有效性
+        if (ctxPtr === 0) {
+            console.warn("⚠️ [KlineEngine]: 尝试在空指针上执行 runAnalysis");
+            return;
+        }
 
-    public freeMemory() {
-        this.exports.free_memory();
+        // 调用 Zig 导出的 run_analysis
+        // 它会利用 SIMD 批量计算并更新 attributes 内存区域
+        this.exports.run_analysis(ctxPtr);
     }
 }
