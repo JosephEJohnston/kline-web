@@ -12,6 +12,7 @@ import {
     UTCTimestamp,
 } from 'lightweight-charts';
 import {QuantContextView} from "@/lib/QuantContextView";
+import {useWasmLock} from "@/components/WasmLockManager";
 
 export interface IndicatorData {
     name: string;         // 如 "EMA20"
@@ -25,7 +26,6 @@ interface CandlestickChartProps {
     indicators?: IndicatorData[];
     // 🌟 关键：数据同步完成的回调
     // 当图表库（如 lightweight-charts）完成 setData 拷贝后触发
-    onDataReadyToFree?: () => void;
     colors?: {
         backgroundColor?: string;
         lineColor?: string;
@@ -42,12 +42,13 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     const {
         dataView,
         indicators = [],
-        onDataReadyToFree,
         colors: {
             backgroundColor = 'white',
             textColor = 'black',
         } = {},
     } = props;
+
+    useWasmLock("CandlestickChart");
 
     const chartContainerRef = useRef<HTMLDivElement>(null!);
     const chartRef = useRef<IChartApi>(null!);
@@ -107,16 +108,11 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         seriesRef.current.setData(chartData);
 
         handleIndicator(dataView, chart, indicatorSeriesMap, indicators);
-        
-        // 3. 🌟 数据已安全进入图表库，通知外部释放 WASM 内存
-        if (onDataReadyToFree) {
-            onDataReadyToFree();
-        }
 
         // 自动缩放以显示所有数据
         chartRef.current?.timeScale().fitContent();
 
-    }, [dataView, indicators, onDataReadyToFree]);
+    }, [dataView, indicators]);
 
     return <div ref={chartContainerRef} className="w-full relative"/>;
 };

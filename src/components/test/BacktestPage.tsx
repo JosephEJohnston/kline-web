@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import {KlineEngine, KlineConfig} from '@/lib/KlineEngine';
 import {CandlestickChart, IndicatorData} from "@/components/CandlestickChart";
 import {QuantContextView} from "@/lib/QuantContextView";
+import {useWasmLock, useWasmManager} from "@/components/WasmLockManager";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
@@ -17,6 +18,11 @@ export default function BacktestPage() {
         engine?.freeMemory();
         console.log("WASM Memory Cleaned Up");
     };
+
+    useWasmManager()
+        .scheduleCleanup(handleCleanup);
+
+    useWasmLock("BacktestPage");
 
     useEffect(() => {
         KlineEngine.load().then(setEngine);
@@ -98,7 +104,6 @@ export default function BacktestPage() {
                         <CandlestickChart
                             dataView={dataView}
                             indicators={indicators}
-                            onDataReadyToFree={handleCleanup}
                         />
                     </div>
 
