@@ -1,56 +1,84 @@
 export class BacktestResult {
-    // --- 统计指标 ---
-    public readonly count: number;
-    public readonly capacity: number;
-    public readonly winCount: number;
-    public readonly totalProfit: number;
-    public readonly maxDrawdown: number;
-    public readonly winRate: number;
-
-    // --- 零拷贝数据视图 (TypedArrays) ---
-    public readonly entryIndices: Uint32Array;
-    public readonly exitIndices: Uint32Array;
-    public readonly entryPrices: Float32Array;
-    public readonly exitPrices: Float32Array;
-    public readonly profits: Float32Array;
+    // --- 私有内存引用与元数据 ---
+    private memory: WebAssembly.Memory;
+    private readonly descriptorPtr: number;
 
     constructor(wasmMemory: WebAssembly.Memory, descriptorPtr: number) {
-        const buffer = wasmMemory.buffer;
-        const view = new DataView(buffer);
+        this.memory = wasmMemory;
+        this.descriptorPtr = descriptorPtr;
+    }
 
-        // 🌟 1. 读取基础计数与指标 (严格匹配 Zig extern struct 顺序)
-        // 偏移量 20, 24, 28, 32, 36
-        this.count = view.getUint32(descriptorPtr + 20, true);
-        this.capacity = view.getUint32(descriptorPtr + 24, true);
-        this.winCount = view.getUint32(descriptorPtr + 28, true);
-        this.totalProfit = view.getFloat32(descriptorPtr + 32, true);
-        this.maxDrawdown = view.getFloat32(descriptorPtr + 36, true);
+    // --- 核心 Getter：实时从当前内存缓冲区读取数据 ---
 
-        // 派生指标
-        this.winRate = this.count > 0 ? this.winCount / this.count : 0;
+    private get view(): DataView {
+        // 每次访问都获取最新的 buffer，防御 memory.grow()
+        return new DataView(this.memory.buffer);
+    }
 
-        // 🌟 2. 映射指针为 TypedArray (偏移量 0, 4, 8, 12, 16)
-        const pEntryIdx = view.getUint32(descriptorPtr + 0, true);
-        const pExitIdx  = view.getUint32(descriptorPtr + 4, true);
-        const pEntryPri = view.getUint32(descriptorPtr + 8, true);
-        const pExitPri  = view.getUint32(descriptorPtr + 12, true);
-        const pProfits  = view.getUint32(descriptorPtr + 16, true);
+    // --- 统计指标 (按 4 字节偏移量读取) ---
 
-        this.entryIndices = new Uint32Array(buffer, pEntryIdx, this.count);
-        this.exitIndices  = new Uint32Array(buffer, pExitIdx, this.count);
-        this.entryPrices  = new Float32Array(buffer, pEntryPri, this.count);
-        this.exitPrices   = new Float32Array(buffer, pExitPri, this.count);
-        this.profits      = new Float32Array(buffer, pProfits, this.count);
+    public get count(): number {
+        return this.view.getUint32(this.descriptorPtr + 20, true);
+    }
+
+    public get capacity(): number {
+        return this.view.getUint32(this.descriptorPtr + 24, true);
+    }
+
+    public get winCount(): number {
+        return this.view.getUint32(this.descriptorPtr + 28, true);
+    }
+
+    public get totalProfit(): number {
+        return this.view.getFloat32(this.descriptorPtr + 32, true);
+    }
+
+    public get maxDrawdown(): number {
+        return this.view.getFloat32(this.descriptorPtr + 36, true);
+    }
+
+    public get winRate(): number {
+        const c = this.count;
+        return c > 0 ? this.winCount / c : 0;
+    }
+
+    // --- 零拷贝数组映射 (每次访问重新绑定最新 Buffer) ---
+
+    public get entryIndices(): Uint32Array {
+        const ptr = this.view.getUint32(this.descriptorPtr + 0, true);
+        return new Uint32Array(this.memory.buffer, ptr, this.count);
+    }
+
+    public get exitIndices(): Uint32Array {
+        const ptr = this.view.getUint32(this.descriptorPtr + 4, true);
+        return new Uint32Array(this.memory.buffer, ptr, this.count);
+    }
+
+    public get entryPrices(): Float32Array {
+        const ptr = this.view.getUint32(this.descriptorPtr + 8, true);
+        return new Float32Array(this.memory.buffer, ptr, this.count);
+    }
+
+    public get exitPrices(): Float32Array {
+        const ptr = this.view.getUint32(this.descriptorPtr + 12, true);
+        return new Float32Array(this.memory.buffer, ptr, this.count);
+    }
+
+    public get profits(): Float32Array {
+        const ptr = this.view.getUint32(this.descriptorPtr + 16, true);
+        return new Float32Array(this.memory.buffer, ptr, this.count);
     }
 
     /**
-     * 辅助方法：获取简单的资金曲线数据
+     * 获取动态生成的资金曲线 (基于最新 profits)
      */
     public getEquityCurve(): Float32Array {
-        const curve = new Float32Array(this.count);
+        const c = this.count;
+        const p = this.profits;
+        const curve = new Float32Array(c);
         let runningSum = 0;
-        for (let i = 0; i < this.count; i++) {
-            runningSum += this.profits[i];
+        for (let i = 0; i < c; i++) {
+            runningSum += p[i];
             curve[i] = runningSum;
         }
         return curve;

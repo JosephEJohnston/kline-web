@@ -11,7 +11,7 @@ import {
     LineStyle,
     UTCTimestamp,
 } from 'lightweight-charts';
-import {QuantContextView} from '@/lib/KlineEngine'; // 引入你定义的 Bar 接口
+import {QuantContextView} from "@/lib/QuantContextView";
 
 export interface IndicatorData {
     name: string;         // 如 "EMA20"
