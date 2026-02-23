@@ -1,4 +1,6 @@
 // 与 Zig 的 Bar struct 严格对应
+import {BacktestResult} from "@/components/test/BacktestResult";
+
 export interface Bar {
     time: bigint;   // i64 -> bigint
     open: number;   // f32 -> number
@@ -185,5 +187,27 @@ export class KlineEngine {
         // 调用 Zig 导出的 run_analysis
         // 它会利用 SIMD 批量计算并更新 attributes 内存区域
         this.exports.run_analysis(ctxPtr);
+    }
+
+    /**
+     * 执行连续强趋势条策略回测
+     * @param ctxPtr QuantContext 指针
+     * @param n 触发信号所需的连续趋势条数量
+     * @returns 包含完整交易记录和统计指标的 BacktestResult 对象
+     */
+    public backtestConsecutiveTrendUp(ctxPtr: number, n: number): BacktestResult | null {
+        // 1. 调用 Zig 导出的回测函数，获取描述符指针
+        // 此时 Zig 侧已经在 Arena 上分配好了所有交易数组和 Descriptor 结构体
+        const descriptorPtr = this.exports.backtest_consecutive_trend_up(ctxPtr, n);
+
+        // 2. 检查空指针（虽然 Zig 侧做了 catch，但前端防御必不可少）
+        if (descriptorPtr === 0) {
+            console.error("❌ [KlineEngine]: 回测执行失败，WASM 返回空指针");
+            return null;
+        }
+
+        // 3. 将指针封装为映射对象并返回
+        // 所有的内存读取都在构造函数中通过偏移量自动完成
+        return new BacktestResult(this.exports.memory, descriptorPtr);
     }
 }

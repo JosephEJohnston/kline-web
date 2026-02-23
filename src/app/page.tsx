@@ -1,4 +1,4 @@
-import BacktestPage from "@/components/test/BackTestPage";
+import BacktestPage from "@/components/test/BacktestPage";
 
 export default function Home() {
   return (

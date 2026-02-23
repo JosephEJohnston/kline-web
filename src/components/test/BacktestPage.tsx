@@ -41,6 +41,7 @@ export default function BacktestPage() {
         const quantContext = engine.parse(text, config);
 
         engine.runAnalysis(quantContext.ctxPtr);
+        engine.backtestConsecutiveTrendUp(quantContext.ctxPtr, 2);
 
         const ema20Array =
             engine.calculateEma(quantContext.ctxPtr, 20);
