@@ -6,9 +6,9 @@ import {
     ColorType,
     createChart, createSeriesMarkers,
     IChartApi,
-    ISeriesApi,
+    ISeriesApi, ISeriesMarkersPluginApi,
     LineSeries,
-    LineStyle, SeriesMarker,
+    LineStyle, SeriesMarker, Time,
     UTCTimestamp,
 } from 'lightweight-charts';
 import {QuantContextView} from "@/lib/QuantContextView";
@@ -56,7 +56,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     // 🌟 关键：使用 Map 管理动态生成的指标线
     // Key 为指标名称 (如 "EMA20")，Value 为图表库的 Series 实例
     const indicatorSeriesMap = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
-    const markersRef = useRef<any>(null); // 保存标记插件实例
+    const markersRef = useRef<ISeriesMarkersPluginApi<UTCTimestamp>>(null); // 保存标记插件实例
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -120,7 +120,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
 
         // 🌟 1. 处理标记逻辑
         if (backtestResult && backtestResult.count > 0) {
-            const markers = []; // 初始为空
+            const markers: SeriesMarker<UTCTimestamp>[] = [] // 初始为空
             const { entryIndices, exitIndices, entryPrices, exitPrices } = backtestResult;
             const { times } = dataView!;
 
@@ -145,16 +145,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
                 });
             }
 
-            // 🌟 2. 如果还没有创建过标记实例，则初始化
-            if (!markersRef.current) {
-                // createSeriesMarkers 接收 series 实例作为第一个参数
-                markersRef.current = createSeriesMarkers(seriesRef.current);
-            }
-
             // 最后排序并交付给图表
             markers.sort((a, b) => (a.time as number) - (b.time as number));
             // 🌟 3. 调用实例上的 setMarkers 方法
-            markersRef.current.setMarkers(markers);
+            markersRef.current?.setMarkers(markers);
 
         } else {
             // 清空标记
