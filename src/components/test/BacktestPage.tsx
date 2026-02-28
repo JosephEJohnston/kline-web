@@ -4,11 +4,15 @@ import {KlineEngine, KlineConfig} from '@/lib/KlineEngine';
 import {QuantContextView} from "@/lib/QuantContextView";
 import DataView from "@/components/view/DataView";
 import {useWasmManager, WasmResourceLock} from "@/components/WasmLockManager";
+import {BacktestResult} from "@/components/test/BacktestResult";
+import {staticBlock} from "@babel/types";
+import BacktestResultView from "@/components/view/BacktestResultView";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
     const [parsingTime, setParsingTime] = useState<number>(0);
     const [dataView, setDataView] = useState<QuantContextView | undefined>(undefined);
+    const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
 
     const wasmManager = useWasmManager();
 
@@ -17,7 +21,14 @@ export default function BacktestPage() {
     }, []);
 
     const doHandleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) =>
-        handleFileUpload(e, engine, wasmManager, setDataView, setParsingTime);
+        handleFileUpload({
+            e,
+            engine,
+            wasmManager,
+            setDataView,
+            setParsingTime,
+            setBacktestResult
+        });
 
     return (
         <div className="p-10 max-w-4xl mx-auto">
@@ -32,6 +43,10 @@ export default function BacktestPage() {
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
             </div>
+
+            <BacktestResultView
+                result={backtestResult}
+            />
 
             {/* 🌟 2. 核心逻辑：使用 dataView 进行条件渲染 */}
             <DataView
@@ -75,12 +90,24 @@ const getAutoConfig = (firstLine: string): KlineConfig => {
     };
 };
 
-const handleFileUpload = async (
+interface HandleFileUploadParam {
     e: React.ChangeEvent<HTMLInputElement>,
     engine: KlineEngine | null,
     wasmManager: WasmResourceLock,
     setDataView: Dispatch<SetStateAction<QuantContextView | undefined>>,
-    setParsingTime: Dispatch<SetStateAction<number>>
+    setParsingTime: Dispatch<SetStateAction<number>>,
+    setBacktestResult: React.Dispatch<React.SetStateAction<BacktestResult | null>>
+}
+
+const handleFileUpload = async (
+    {
+        e,
+        engine,
+        wasmManager,
+        setDataView,
+        setParsingTime,
+        setBacktestResult
+    }: HandleFileUploadParam
 ) => {
     const file = e.target.files?.[0];
     if (!file || !engine) {
@@ -111,7 +138,9 @@ const handleFileUpload = async (
     );
 
     engine.runAnalysis(quantContext.ctxPtr);
-    engine.backtestConsecutiveTrendUp(quantContext.ctxPtr, 2);
+    const testResult = engine
+        .backtestConsecutiveTrendUp(quantContext.ctxPtr, 2);
+    setBacktestResult(testResult);
 
     const ema20Array =
         engine.calculateEma(quantContext.ctxPtr, 20);
