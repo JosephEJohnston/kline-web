@@ -94,11 +94,7 @@ const handleFileUpload = async (
         return;
     }
 
-    wasmManager.scheduleCleanup(() => {
-        // 当图表渲染完成并拷贝走数据后，通知 WASM 引擎重置 Arena 内存
-        engine?.freeMemory();
-        console.log("WASM Memory Cleaned Up");
-    });
+    setDataView(undefined);
 
     // console.log('text: ' + text);
 
@@ -123,6 +119,12 @@ const handleFileUpload = async (
         engine.calculateEma(quantContext.ctxPtr, 60);
 
     const end = performance.now();
+
+    wasmManager.scheduleCleanup(() => {
+        // 当图表渲染完成并拷贝走数据后，通知 WASM 引擎重置 Arena 内存
+        engine?.freeMemory();
+        console.log("WASM Memory Cleaned Up");
+    });
 
     setDataView(quantContext);
     setParsingTime(end - start);
