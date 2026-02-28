@@ -1,62 +1,30 @@
 'use client';
-import { useState, useEffect } from 'react';
+import React, {useState, useEffect, SetStateAction, Dispatch} from 'react';
 import {KlineEngine, KlineConfig} from '@/lib/KlineEngine';
 import {QuantContextView} from "@/lib/QuantContextView";
 import DataView from "@/components/view/DataView";
+import {useWasmManager, WasmResourceLock} from "@/components/WasmLockManager";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
     const [parsingTime, setParsingTime] = useState<number>(0);
     const [dataView, setDataView] = useState<QuantContextView | undefined>(undefined);
 
+    const wasmManager = useWasmManager();
+
     // 2. 内存清理回调
-    const handleCleanup = () => {
+    wasmManager.scheduleCleanup(() => {
         // 当图表渲染完成并拷贝走数据后，通知 WASM 引擎重置 Arena 内存
         engine?.freeMemory();
         console.log("WASM Memory Cleaned Up");
-    };
+    });
 
     useEffect(() => {
         KlineEngine.load().then(setEngine);
     }, []);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !engine) return;
-
-        const text = await file.text();
-        const firstLineEnd = text.indexOf('\n');
-        const firstLine = text.substring(0, firstLineEnd);
-        if (firstLine.length < 2) return;
-
-        // console.log('text: ' + text);
-
-        // 1. 获取动态配置
-        const config = getAutoConfig(firstLine);
-        // console.log('识别到的列配置:', config);
-
-        const start = performance.now();
-
-        const quantContext = engine.parse(text, config);
-
-        engine.runAnalysis(quantContext.ctxPtr);
-        engine.backtestConsecutiveTrendUp(quantContext.ctxPtr, 2);
-
-        const ema20Array =
-            engine.calculateEma(quantContext.ctxPtr, 20);
-        const ema60Array =
-            engine.calculateEma(quantContext.ctxPtr, 60);
-
-        const end = performance.now();
-
-        setDataView(quantContext);
-        setParsingTime(end - start);
-
-        quantContext.setIndicators([
-            { name: 'EMA20', data: ema20Array, color: '#2962FF' },
-            { name: 'EMA60', data: ema60Array, color: '#FF6D00' }
-        ]);
-    };
+    const doHandleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) =>
+        handleFileUpload(e, engine, wasmManager, setDataView, setParsingTime);
 
     return (
         <div className="p-10 max-w-4xl mx-auto">
@@ -66,7 +34,7 @@ export default function BacktestPage() {
             <div className="p-6 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
                 <input
                     type="file"
-                    onChange={handleFileUpload}
+                    onChange={doHandleFileUpload}
                     accept=".csv"
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
@@ -112,4 +80,52 @@ const getAutoConfig = (firstLine: string): KlineConfig => {
         // 成交量：匹配 volume, vol, 成交, 或者只有字母 v
         volume_idx: headers.findIndex(h => h.includes('vol') || h.includes('成交') || h === 'v'),
     };
+};
+
+const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    engine: KlineEngine | null,
+    wasmManager: WasmResourceLock,
+    setDataView: Dispatch<SetStateAction<QuantContextView | undefined>>,
+    setParsingTime: Dispatch<SetStateAction<number>>
+) => {
+    const file = e.target.files?.[0];
+    if (!file || !engine) return;
+
+    const text = await file.text();
+    const firstLineEnd = text.indexOf('\n');
+    const firstLine = text.substring(0, firstLineEnd);
+    if (firstLine.length < 2) return;
+
+    // console.log('text: ' + text);
+
+    // 1. 获取动态配置
+    const config = getAutoConfig(firstLine);
+    // console.log('识别到的列配置:', config);
+
+    const start = performance.now();
+
+    const quantContext = engine.parse(
+        text,
+        config,
+        wasmManager
+    );
+
+    engine.runAnalysis(quantContext.ctxPtr);
+    engine.backtestConsecutiveTrendUp(quantContext.ctxPtr, 2);
+
+    const ema20Array =
+        engine.calculateEma(quantContext.ctxPtr, 20);
+    const ema60Array =
+        engine.calculateEma(quantContext.ctxPtr, 60);
+
+    const end = performance.now();
+
+    setDataView(quantContext);
+    setParsingTime(end - start);
+
+    quantContext.setIndicators([
+        { name: 'EMA20', data: ema20Array, color: '#2962FF' },
+        { name: 'EMA60', data: ema60Array, color: '#FF6D00' }
+    ]);
 };

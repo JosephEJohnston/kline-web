@@ -1,6 +1,7 @@
 // 与 Zig 的 Bar struct 严格对应
 import {BacktestResult} from "@/components/test/BacktestResult";
 import {QuantContextView} from "@/lib/QuantContextView";
+import {WasmResourceLock} from "@/components/WasmLockManager";
 
 export interface Bar {
     time: bigint;   // i64 -> bigint
@@ -70,7 +71,7 @@ export class KlineEngine {
         this.exports.free_memory();
     }
 
-    public parse(csvText: string, config: KlineConfig): QuantContextView {
+    public parse(csvText: string, config: KlineConfig, manager: WasmResourceLock): QuantContextView {
         const encoder = new TextEncoder();
         const bytes = encoder.encode(csvText);
         const len = bytes.length;
@@ -91,7 +92,7 @@ export class KlineEngine {
             config.volume_idx
         );
 
-        return new QuantContextView(this.exports.memory, ctxPtr);
+        return new QuantContextView(this.exports.memory, ctxPtr, manager);
     }
 
     /**

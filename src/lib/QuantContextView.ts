@@ -1,4 +1,5 @@
 import {IndicatorData} from "@/components/CandlestickChart";
+import {WasmResourceLock} from "@/components/WasmLockManager";
 
 /**
  * 对应 QuantContext 在 WASM 内存中的结构布局
@@ -6,6 +7,7 @@ import {IndicatorData} from "@/components/CandlestickChart";
 export class QuantContextView {
     // --- 私有内存引用 ---
     private memory: WebAssembly.Memory;
+    public readonly lock: WasmResourceLock; // 🌟 新增锁引用
     private readonly _ctxPtr: number;
     private readonly _count: number;
 
@@ -20,9 +22,10 @@ export class QuantContextView {
 
     private _indicators: IndicatorData[] = []; // 新增字段
 
-    constructor(wasmMemory: WebAssembly.Memory, ctxPtr: number) {
+    constructor(wasmMemory: WebAssembly.Memory, ctxPtr: number, lock: WasmResourceLock) {
         this.memory = wasmMemory;
         this._ctxPtr = ctxPtr;
+        this.lock = lock; // 绑定该视图专用的锁
 
         const view = new DataView(this.memory.buffer);
 
