@@ -2,11 +2,13 @@
 import React from 'react';
 import {CandlestickChart} from "@/components/CandlestickChart";
 import {QuantContextView} from "@/lib/QuantContextView";
+import {BacktestResult} from "@/components/test/BacktestResult";
 
 
 interface BacktestStats {
     quantContext?: QuantContextView;
     parsingTime: number;
+    backtestResult?: BacktestResult | null; // 🌟 新增：接收回测结果
 }
 
 interface DataViewProps {
@@ -16,7 +18,8 @@ interface DataViewProps {
 const DataView = ({ stats }: DataViewProps) => {
     const {
         quantContext: dataView,
-        parsingTime
+        parsingTime,
+        backtestResult
     } = stats;
 
     return (
@@ -43,7 +46,7 @@ const DataView = ({ stats }: DataViewProps) => {
                         </div>
                         <CandlestickChart
                             dataView={dataView}
-                            indicators={dataView.indicators}
+                            backtestResult={backtestResult}
                         />
                     </div>
 

@@ -8,11 +8,12 @@ import {
     IChartApi,
     ISeriesApi,
     LineSeries,
-    LineStyle,
+    LineStyle, SeriesMarker,
     UTCTimestamp,
 } from 'lightweight-charts';
 import {QuantContextView} from "@/lib/QuantContextView";
 import {useWasmLock} from "@/components/WasmLockManager";
+import {BacktestResult} from "@/components/test/BacktestResult";
 
 export interface IndicatorData {
     name: string;         // 如 "EMA20"
@@ -22,10 +23,9 @@ export interface IndicatorData {
 
 interface CandlestickChartProps {
     dataView?: QuantContextView;
-    // 平行指标数组集合
-    indicators?: IndicatorData[];
     // 🌟 关键：数据同步完成的回调
     // 当图表库（如 lightweight-charts）完成 setData 拷贝后触发
+    backtestResult?: BacktestResult | null; // 🌟 新增：接收回测结果
     colors?: {
         backgroundColor?: string;
         lineColor?: string;
@@ -41,7 +41,7 @@ type ChartIndicatorLine = ISeriesApi<"Line">;
 export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     const {
         dataView,
-        indicators = [],
+        backtestResult,
         colors: {
             backgroundColor = 'white',
             textColor = 'black',
@@ -107,12 +107,12 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         }
         seriesRef.current.setData(chartData);
 
-        handleIndicator(dataView, chart, indicatorSeriesMap, indicators);
+        handleIndicator(dataView, chart, indicatorSeriesMap, dataView.indicators);
 
         // 自动缩放以显示所有数据
         chartRef.current?.timeScale().fitContent();
 
-    }, [dataView, indicators]);
+    }, [dataView, dataView?.indicators]);
 
     return <div ref={chartContainerRef} className="w-full relative"/>;
 };

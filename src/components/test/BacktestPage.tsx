@@ -52,7 +52,8 @@ export default function BacktestPage() {
             <DataView
                 stats={{
                     quantContext: dataView,
-                    parsingTime
+                    parsingTime,
+                    backtestResult
                 }}
             />
         </div>
