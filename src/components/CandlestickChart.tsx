@@ -84,6 +84,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
             chart.remove();
             // 🌟 关键：销毁图表时必须清空 Map 注册表
             mapCurrent.clear();
+            markersRef.current = null;
         };
     }, [backgroundColor, textColor]);
 
@@ -117,6 +118,8 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
 
     useEffect(() => {
         if (!dataView || !seriesRef.current) return;
+
+        console.log("📈 图表收到回测结果:", backtestResult?.count, "笔交易");
 
         // 🌟 1. 处理标记逻辑
         if (backtestResult && backtestResult.count > 0) {
