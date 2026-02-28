@@ -1,16 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
 import {KlineEngine, KlineConfig} from '@/lib/KlineEngine';
-import {CandlestickChart, IndicatorData} from "@/components/CandlestickChart";
 import {QuantContextView} from "@/lib/QuantContextView";
-import {useWasmLock, useWasmManager} from "@/components/WasmLockManager";
+import DataView from "@/components/view/DataView";
 
 export default function BacktestPage() {
     const [engine, setEngine] = useState<KlineEngine | null>(null);
     const [parsingTime, setParsingTime] = useState<number>(0);
     const [dataView, setDataView] = useState<QuantContextView | undefined>(undefined);
-    // 1. 定义状态
-    const [indicators, setIndicators] = useState<IndicatorData[]>([]);
 
     // 2. 内存清理回调
     const handleCleanup = () => {
@@ -18,11 +15,6 @@ export default function BacktestPage() {
         engine?.freeMemory();
         console.log("WASM Memory Cleaned Up");
     };
-
-    useWasmManager()
-        .scheduleCleanup(handleCleanup);
-
-    useWasmLock("BacktestPage");
 
     useEffect(() => {
         KlineEngine.load().then(setEngine);
@@ -60,7 +52,7 @@ export default function BacktestPage() {
         setDataView(quantContext);
         setParsingTime(end - start);
 
-        setIndicators([
+        quantContext.setIndicators([
             { name: 'EMA20', data: ema20Array, color: '#2962FF' },
             { name: 'EMA60', data: ema60Array, color: '#FF6D00' }
         ]);
@@ -81,61 +73,12 @@ export default function BacktestPage() {
             </div>
 
             {/* 🌟 2. 核心逻辑：使用 dataView 进行条件渲染 */}
-            {dataView && dataView.count > 0 && (
-                <div className="mt-8 space-y-4 animate-in fade-in duration-500">
-                    {/* 性能看板 */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl shadow-sm">
-                            <p className="text-blue-600 text-xs font-semibold uppercase tracking-wider">解析行数 (Actual)</p>
-                            <p className="text-2xl font-mono font-bold text-blue-900">{dataView.count.toLocaleString()}</p>
-                        </div>
-                        <div className="p-4 bg-green-50 border border-green-100 rounded-xl shadow-sm">
-                            <p className="text-green-600 text-xs font-semibold uppercase tracking-wider">WASM 引擎耗时</p>
-                            <p className="text-2xl font-mono font-bold text-green-900">{parsingTime.toFixed(3)} ms</p>
-                        </div>
-                    </div>
-
-                    {/* 3. 价格走势图组件 */}
-                    <div className="p-4 border border-gray-100 rounded-2xl bg-white shadow-lg">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-semibold text-gray-700">实时 K 线图 (EMA20 系统)</h2>
-                            <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">WASM 零拷贝渲染</span>
-                        </div>
-                        <CandlestickChart
-                            dataView={dataView}
-                            indicators={indicators}
-                        />
-                    </div>
-
-                    {/* 4. 数据预览表格：直接从 TypedArray 读取，不创建中间对象 */}
-                    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-4 py-2 text-left text-xs font-bold text-gray-400 uppercase">Index</th>
-                                <th className="px-4 py-2 text-left text-xs font-bold text-gray-400 uppercase">Time (Unix)</th>
-                                <th className="px-4 py-2 text-left text-xs font-bold text-gray-400 uppercase">Close</th>
-                                <th className="px-4 py-2 text-left text-xs font-bold text-gray-400 uppercase">Volume</th>
-                            </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-100 font-mono text-sm">
-                            {/* 🌟 关键：手动索引读取，避免 bars.slice().map() 产生的大量临时对象 */}
-                            {Array.from({ length: Math.min(dataView.count, 5) }).map((_, i) => (
-                                <tr key={i} className="hover:bg-blue-50/30 transition-colors">
-                                    <td className="px-4 py-2 text-gray-400 text-xs">#{i}</td>
-                                    <td className="px-4 py-2 text-gray-700">{dataView.times[i].toString()}</td>
-                                    <td className="px-4 py-2 text-blue-600 font-bold">{dataView.closes[i].toFixed(2)}</td>
-                                    <td className="px-4 py-2 text-gray-500">{dataView.volumes[i].toFixed(0)}</td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                        <div className="p-3 bg-gray-50 text-center text-xs text-gray-400 italic">
-                            直接映射 WASM 线性内存地址 · 仅展示前 5 条采样
-                        </div>
-                    </div>
-                </div>
-            )}
+            <DataView
+                stats={{
+                    quantContext: dataView,
+                    parsingTime
+                }}
+            />
         </div>
     );
 }

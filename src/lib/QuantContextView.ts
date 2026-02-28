@@ -1,3 +1,5 @@
+import {IndicatorData} from "@/components/CandlestickChart";
+
 /**
  * 对应 QuantContext 在 WASM 内存中的结构布局
  */
@@ -15,6 +17,8 @@ export class QuantContextView {
     private readonly closePtr: number;
     private readonly volumePtr: number;
     private readonly attrPtr: number;
+
+    private _indicators: IndicatorData[] = []; // 新增字段
 
     constructor(wasmMemory: WebAssembly.Memory, ctxPtr: number) {
         this.memory = wasmMemory;
@@ -71,6 +75,14 @@ export class QuantContextView {
 
     public get ctxPtr(): number {
         return this._ctxPtr;
+    }
+
+    public setIndicators(data: IndicatorData[]) {
+        this._indicators = data;
+    }
+
+    public get indicators(): IndicatorData[] {
+        return this._indicators;
     }
 }
 
