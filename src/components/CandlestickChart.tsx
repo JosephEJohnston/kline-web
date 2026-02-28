@@ -35,7 +35,7 @@ interface CandlestickChartProps {
     };
 }
 
-type ChartCandlestickSeries = ISeriesApi<"Candlestick">;
+type ChartCandlestickSeries = ISeriesApi<"Candlestick", UTCTimestamp>;
 type ChartIndicatorLine = ISeriesApi<"Line">;
 
 export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
@@ -52,7 +52,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
 
     const chartContainerRef = useRef<HTMLDivElement>(null!);
     const chartRef = useRef<IChartApi>(null!);
-    const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+    const seriesRef = useRef<ChartCandlestickSeries | null>(null);
     // 🌟 关键：使用 Map 管理动态生成的指标线
     // Key 为指标名称 (如 "EMA20")，Value 为图表库的 Series 实例
     const indicatorSeriesMap = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
@@ -145,6 +145,10 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
                 });
             }
 
+            if (!markersRef.current && seriesRef.current) {
+                markersRef.current = createSeriesMarkers<UTCTimestamp>(seriesRef.current);
+            }
+
             // 最后排序并交付给图表
             markers.sort((a, b) => (a.time as number) - (b.time as number));
             // 🌟 3. 调用实例上的 setMarkers 方法
@@ -191,7 +195,7 @@ function makeBar(
         borderVisible: false,
         wickUpColor: '#26a69a',
         wickDownColor: '#ef5350',
-    });;
+    }) as ChartCandlestickSeries;;
 }
 
 function handleIndicator(
