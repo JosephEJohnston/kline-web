@@ -12,13 +12,6 @@ export default function BacktestPage() {
 
     const wasmManager = useWasmManager();
 
-    // 2. 内存清理回调
-    wasmManager.scheduleCleanup(() => {
-        // 当图表渲染完成并拷贝走数据后，通知 WASM 引擎重置 Arena 内存
-        engine?.freeMemory();
-        console.log("WASM Memory Cleaned Up");
-    });
-
     useEffect(() => {
         KlineEngine.load().then(setEngine);
     }, []);
@@ -90,12 +83,22 @@ const handleFileUpload = async (
     setParsingTime: Dispatch<SetStateAction<number>>
 ) => {
     const file = e.target.files?.[0];
-    if (!file || !engine) return;
+    if (!file || !engine) {
+        return;
+    }
 
     const text = await file.text();
     const firstLineEnd = text.indexOf('\n');
     const firstLine = text.substring(0, firstLineEnd);
-    if (firstLine.length < 2) return;
+    if (firstLine.length < 2) {
+        return;
+    }
+
+    wasmManager.scheduleCleanup(() => {
+        // 当图表渲染完成并拷贝走数据后，通知 WASM 引擎重置 Arena 内存
+        engine?.freeMemory();
+        console.log("WASM Memory Cleaned Up");
+    });
 
     // console.log('text: ' + text);
 
