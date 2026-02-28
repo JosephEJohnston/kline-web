@@ -4,7 +4,7 @@ import React, {useEffect, useRef} from 'react';
 import {
     CandlestickSeries,
     ColorType,
-    createChart,
+    createChart, createSeriesMarkers,
     IChartApi,
     ISeriesApi,
     LineSeries,
@@ -56,6 +56,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
     // 🌟 关键：使用 Map 管理动态生成的指标线
     // Key 为指标名称 (如 "EMA20")，Value 为图表库的 Series 实例
     const indicatorSeriesMap = useRef<Map<string, ISeriesApi<"Line">>>(new Map());
+    const markersRef = useRef<any>(null); // 保存标记插件实例
 
     useEffect(() => {
         if (!chartContainerRef.current) return;
@@ -113,6 +114,53 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = (props) => {
         chartRef.current?.timeScale().fitContent();
 
     }, [dataView, dataView?.indicators]);
+
+    useEffect(() => {
+        if (!dataView || !seriesRef.current) return;
+
+        // 🌟 1. 处理标记逻辑
+        if (backtestResult && backtestResult.count > 0) {
+            const markers = []; // 初始为空
+            const { entryIndices, exitIndices, entryPrices, exitPrices } = backtestResult;
+            const { times } = dataView!;
+
+            for (let i = 0; i < backtestResult.count; i++) {
+                // 🌟 这里的 push 操作就是让数组“不为空”的关键
+                // 入场信号
+                markers.push({
+                    time: Number(times[entryIndices[i]]) as UTCTimestamp,
+                    position: 'belowBar',
+                    color: '#26a69a',
+                    shape: 'arrowUp',
+                    text: `买入 @ ${entryPrices[i].toFixed(2)}`,
+                });
+
+                // 出场信号
+                markers.push({
+                    time: Number(times[exitIndices[i]]) as UTCTimestamp,
+                    position: 'aboveBar',
+                    color: '#ef5350',
+                    shape: 'arrowDown',
+                    text: `卖出 @ ${exitPrices[i].toFixed(2)}`,
+                });
+            }
+
+            // 🌟 2. 如果还没有创建过标记实例，则初始化
+            if (!markersRef.current) {
+                // createSeriesMarkers 接收 series 实例作为第一个参数
+                markersRef.current = createSeriesMarkers(seriesRef.current);
+            }
+
+            // 最后排序并交付给图表
+            markers.sort((a, b) => (a.time as number) - (b.time as number));
+            // 🌟 3. 调用实例上的 setMarkers 方法
+            markersRef.current.setMarkers(markers);
+
+        } else {
+            // 清空标记
+            markersRef.current?.setMarkers([]);
+        }
+    }, [dataView, backtestResult]);
 
     return <div ref={chartContainerRef} className="w-full relative"/>;
 };
