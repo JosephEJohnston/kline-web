@@ -5,7 +5,6 @@ import {QuantContextView} from "@/lib/QuantContextView";
 import DataView from "@/components/view/DataView";
 import {useWasmManager, WasmResourceLock} from "@/components/WasmLockManager";
 import {BacktestResult} from "@/components/test/BacktestResult";
-import {staticBlock} from "@babel/types";
 import BacktestResultView from "@/components/view/BacktestResultView";
 
 export default function BacktestPage() {

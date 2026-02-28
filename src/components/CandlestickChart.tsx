@@ -8,8 +8,7 @@ import {
     IChartApi,
     ISeriesApi, ISeriesMarkersPluginApi,
     LineSeries,
-    LineStyle, SeriesMarker, Time,
-    UTCTimestamp,
+    LineStyle, SeriesMarker, UTCTimestamp,
 } from 'lightweight-charts';
 import {QuantContextView} from "@/lib/QuantContextView";
 import {useWasmLock} from "@/components/WasmLockManager";
@@ -198,7 +197,7 @@ function makeBar(
         borderVisible: false,
         wickUpColor: '#26a69a',
         wickDownColor: '#ef5350',
-    }) as ChartCandlestickSeries;;
+    }) as ChartCandlestickSeries;
 }
 
 function handleIndicator(
@@ -207,7 +206,7 @@ function handleIndicator(
     indicatorSeriesMap: React.RefObject<Map<string, ChartIndicatorLine>>,
     indicators: IndicatorData[],
 ) {
-    const { times, count } = dataView;
+    const { times} = dataView;
     // 第一步：清理已失效的线
     const activeNames = new Set(indicators.map(i => i.name));
     indicatorSeriesMap.current.forEach((series, name) => {

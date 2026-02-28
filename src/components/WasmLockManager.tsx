@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 
 /**
  * 1. 核心逻辑类：负责具体的锁计数与清理调度
