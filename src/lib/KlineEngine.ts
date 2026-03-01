@@ -38,7 +38,7 @@ export class KlineEngine {
     }
 
     static async load() {
-        const response = await fetch('/wasm/kline_engine.wasm');
+        const response = await fetch('/wasm/kline_strategy_lab.wasm');
 
         // 1. 定义一个容器（引用不会变，但内容会变）
         const wasm = { instance: null as WebAssembly.Instance | null };
@@ -60,6 +60,8 @@ export class KlineEngine {
         };
 
         const { instance } = await WebAssembly.instantiateStreaming(response, importObject);
+
+        console.log("WASM Exports:", instance.exports);
 
         // 2. 填充容器
         wasm.instance = instance;
